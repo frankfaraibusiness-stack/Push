@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <title>Pusher</title>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+      <style>
+         @font-face {
+         font-family: 'JetBrains Mono';
+         src: local('JetBrains Mono');
+         }
+         :root {
+         --bg: #08080a;
+         --panel: #121214;
+         --panel-2: #1a1a1d;
+         --border: #232327;
+         --border-soft: #1c1c20;
+         --text: #eeeef0;
+         --text-dim: #86868f;
+         --text-faint: #4d4d54;
+         --accent: #3b82f6;
+         --accent-dim: #1d4ed8;
+         --accent-glow: rgba(59, 130, 246, 0.18);
+         --good: #34d399;
+         --good-dim: rgba(52, 211, 153, 0.12);
+         --bad: #f87171;
+         --bad-dim: rgba(248, 113, 113, 0.12);
+         --warn: #fbbf24;
+         --radius: 14px;
+         --radius-sm: 9px;
+         --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+         --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+         }
+         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+         html { color-scheme: dark; }
+         body {
+         margin: 0;
+         min-height: 100vh;
+         background:
+         radial-gradient(ellipse 700px 400px at 50% -10%, rgba(59,130,246,0.08), transparent 60%),
+         var(--bg);
+         color: var(--text);
+         font-family: var(--sans);
+         -webkit-font-smoothing: antialiased;
+         padding: 18px 16px 100px;
+         }
+         ::selection { background: var(--accent-glow); }
+         /* ── Header ───────────────────────────────────────────── */
+         .header {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         margin-bottom: 22px;
+         }
+         .brand { display: flex; align-items: center; gap: 10px; }
+         .brand-mark {
+         width: 34px; height: 34px;
+         border-radius: 9px;
+         background: linear-gradient(145deg, #1c2534, #0f141c);
+         border: 1px solid var(--border);
+         display: flex; align-items: center; justify-content: center;
+         color: var(--accent);
+         flex-shrink: 0;
+         }
+         .title { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+         .subtitle { font-size: 11.5px; color: var(--text-faint); font-family: var(--mono); margin-top: 1px; }
+         .icon-btn {
+         background: var(--panel);
+         border: 1px solid var(--border);
+         border-radius: 10px;
+         width: 38px; height: 38px;
+         display: flex; align-items: center; justify-content: center;
+         color: var(--text-dim);
+         cursor: pointer;
+         transition: border-color .15s, color .15s, background .15s;
+         flex-shrink: 0;
+         position: relative;
+         }
+         .icon-btn:hover { border-color: #35353c; color: var(--text); background: var(--panel-2); }
+         .icon-btn:active { transform: scale(0.94); }
+         .icon-btn.active { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-glow); }
+         .header-actions { display: flex; gap: 8px; }
+         .dot-badge {
+         position: absolute; top: -3px; right: -3px;
+         width: 8px; height: 8px; border-radius: 50%;
+         background: var(--accent);
+         border: 2px solid var(--bg);
+         }
+         /* ── Settings panel ───────────────────────────────────── */
+         .settings-wrap {
+         display: grid;
+         grid-template-rows: 0fr;
+         transition: grid-template-rows .28s cubic-bezier(.16,1,.3,1);
+         margin-bottom: 0;
+         }
+         .settings-wrap.open { grid-template-rows: 1fr; margin-bottom: 18px; }
+         .settings-inner { overflow: hidden; }
+         .settings-panel {
+         background: var(--panel);
+         border: 1px solid var(--border);
+         border-radius: var(--radius);
+         padding: 4px;
+         }
+         .setting-row {
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         gap: 14px;
+         padding: 13px 12px;
+         }
+         .setting-row + .setting-row { border-top: 1px solid var(--border-soft); }
+         .setting-copy { min-width: 0; }
+         .setting-name { font-size: 13.5px; font-weight: 600; }
+         .setting-desc { font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.4; }
+         .setting-desc code {
+         font-family: var(--mono);
+         background: var(--panel-2);
+         padding: 1px 5px;
+         border-radius: 4px;
+         font-size: 11px;
+         color: #93c5fd;
+         }
+         .switch { position: relative; width: 42px; height: 25px; flex-shrink: 0; cursor: pointer; }
+         .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+         .switch-track {
+         position: absolute; inset: 0;
+         background: #2a2a2e;
+         border-radius: 999px;
+         transition: background .18s;
+         border: 1px solid var(--border);
+         }
+         .switch-thumb {
+         position: absolute; top: 2px; left: 2px;
+         width: 19px; height: 19px;
+         background: #9a9aa2;
+         border-radius: 50%;
+         transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .18s;
+         }
+         .switch input:checked + .switch-track { background: var(--accent-dim); border-color: var(--accent); }
+         .switch input:checked + .switch-track .switch-thumb { transform: translateX(17px); background: #fff; }
+         .settings-footer {
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         padding: 10px 12px 8px;
+         font-size: 11px;
+         color: var(--text-faint);
+         font-family: var(--mono);
+         }
+         .clear-link {
+         color: var(--bad);
+         background: none;
+         border: none;
+         font-size: 11px;
+         font-family: var(--mono);
+         cursor: pointer;
+         padding: 4px 0;
+         }
+         /* ── Panels ───────────────────────────────────────────── */
+         .panel {
+         background: var(--panel);
+         border: 1px solid var(--border);
+         padding: 15px;
+         border-radius: var(--radius);
+         margin-bottom: 16px;
+         }
+         .label {
+         font-size: 12px;
+         font-weight: 600;
+         margin-bottom: 9px;
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         color: var(--text-dim);
+         text-transform: uppercase;
+         letter-spacing: 0.04em;
+         }
+         .label-count { font-family: var(--mono); color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+         select {
+         width: 100%;
+         padding: 12px 13px;
+         border-radius: 10px;
+         background: var(--panel-2);
+         border: 1px solid var(--border);
+         color: var(--text);
+         font-size: 14px;
+         font-family: var(--sans);
+         appearance: none;
+         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2386868f' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+         background-repeat: no-repeat;
+         background-position: right 12px center;
+         padding-right: 38px;
+         }
+         select:focus { outline: none; border-color: var(--accent); }
+         .repo-row { display: flex; gap: 8px; }
+         /* ── Dropzone ─────────────────────────────────────────── */
+         .dropzone {
+         position: relative;
+         border: 1.5px dashed #2c2c31;
+         background: var(--panel);
+         border-radius: var(--radius);
+         padding: 30px 20px;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         margin-bottom: 18px;
+         text-align: center;
+         cursor: pointer;
+         transition: border-color .18s, background .18s;
+         }
+         .dropzone.drag-over {
+         border-color: var(--accent);
+         background: var(--accent-glow);
+         }
+         .dropzone input[type="file"] {
+         position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+         }
+         .dropzone-icon {
+         width: 44px; height: 44px;
+         border-radius: 12px;
+         background: var(--panel-2);
+         border: 1px solid var(--border);
+         display: flex; align-items: center; justify-content: center;
+         margin-bottom: 4px;
+         color: var(--text-dim);
+         transition: color .18s, border-color .18s;
+         }
+         .dropzone.drag-over .dropzone-icon { color: var(--accent); border-color: var(--accent-dim); }
+         .dropzone-text { font-size: 14px; font-weight: 600; margin-top: 10px; }
+         .dropzone-sub { font-size: 12px; color: var(--text-faint); margin-top: 4px; font-family: var(--mono); }
+         .dropzone-or {
+         font-size: 10.5px;
+         color: var(--text-faint);
+         text-transform: uppercase;
+         letter-spacing: 0.08em;
+         margin: 10px 0 2px;
+         }
+         /* ── Queue ────────────────────────────────────────────── */
+         .queue-group-label {
+         font-size: 11px;
+         color: var(--text-faint);
+         font-family: var(--mono);
+         margin: 18px 0 8px 2px;
+         display: flex;
+         align-items: center;
+         gap: 6px;
+         }
+         .queue-group-label svg { flex-shrink: 0; }
+         .queue { display: flex; flex-direction: column; gap: 8px; }
+         .file-card {
+         background: var(--panel);
+         border: 1px solid var(--border);
+         border-radius: 11px;
+         padding: 11px 12px;
+         display: flex;
+         flex-direction: column;
+         gap: 8px;
+         animation: cardIn .25s cubic-bezier(.16,1,.3,1) backwards;
+         }
+         @keyframes cardIn {
+         from { opacity: 0; transform: translateY(6px); }
+         to { opacity: 1; transform: translateY(0); }
+         }
+         .file-card.is-error { border-color: rgba(248,113,113,0.35); }
+         .file-card.is-done { border-color: rgba(52,211,153,0.3); }
+         .file-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+         .file-meta { min-width: 0; display: flex; align-items: center; gap: 8px; }
+         .file-type-chip {
+         flex-shrink: 0;
+         width: 22px; height: 22px;
+         border-radius: 6px;
+         display: flex; align-items: center; justify-content: center;
+         font-size: 9px;
+         font-weight: 800;
+         font-family: var(--mono);
+         letter-spacing: -0.02em;
+         }
+         .chip-js { background: rgba(250, 204, 21, 0.13); color: #facc15; }
+         .chip-html { background: rgba(251, 146, 60, 0.13); color: #fb923c; }
+         .chip-css { background: rgba(96, 165, 250, 0.13); color: #60a5fa; }
+         .chip-json { background: rgba(163, 163, 163, 0.13); color: #a3a3a3; }
+         .chip-other { background: rgba(167, 139, 250, 0.13); color: #a78bfa; }
+         .file-name { font-size: 12.5px; color: var(--text); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+         .file-size { font-size: 10.5px; color: var(--text-faint); font-family: var(--mono); flex-shrink: 0; margin-top: 1px; }
+         .file-status {
+         font-size: 10px;
+         font-weight: 700;
+         padding: 3px 7px;
+         border-radius: 5px;
+         flex-shrink: 0;
+         font-family: var(--mono);
+         text-transform: uppercase;
+         letter-spacing: 0.03em;
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         }
+         .status-pending { background: var(--panel-2); color: var(--text-dim); }
+         .status-done { background: var(--good-dim); color: var(--good); }
+         .status-error { background: var(--bad-dim); color: var(--bad); }
+         .status-pushing { background: var(--accent-glow); color: #93c5fd; }
+         .spin { animation: spin .7s linear infinite; }
+         @keyframes spin { to { transform: rotate(360deg); } }
+         .remove-btn {
+         background: none; border: none; color: var(--text-faint);
+         padding: 2px; cursor: pointer; flex-shrink: 0;
+         display: flex; align-items: center;
+         transition: color .15s;
+         }
+         .remove-btn:hover { color: var(--bad); }
+         .path-input-wrap { position: relative; }
+         .path-input-wrap input {
+         width: 100%;
+         padding: 9px 12px 9px 32px;
+         border-radius: 8px;
+         background: var(--panel-2);
+         border: 1px solid var(--border-soft);
+         color: var(--text);
+         font-size: 12.5px;
+         font-family: var(--mono);
+         }
+         .path-input-wrap input:focus { outline: none; border-color: var(--accent); }
+         .path-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none; }
+         .path-rewrite-flash {
+         animation: rewriteFlash .5s ease;
+         }
+         @keyframes rewriteFlash {
+         0% { background: var(--accent-glow); border-color: var(--accent); }
+         100% { background: var(--panel-2); border-color: var(--border-soft); }
+         }
+         /* ── Empty state ──────────────────────────────────────── */
+         .empty-state {
+         text-align: center;
+         padding: 30px 16px;
+         color: var(--text-faint);
+         }
+         .empty-state svg { margin-bottom: 10px; opacity: 0.5; }
+         .empty-state-text { font-size: 12.5px; font-family: var(--mono); }
+         /* ── Sticky push bar ──────────────────────────────────── */
+         .push-bar {
+         position: fixed;
+         left: 0; right: 0; bottom: 0;
+         padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+         background: linear-gradient(to top, var(--bg) 60%, transparent);
+         pointer-events: none;
+         }
+         .push-bar-inner { pointer-events: auto; max-width: 640px; margin: 0 auto; }
+         .btn-primary {
+         width: 100%;
+         background: var(--accent);
+         background: linear-gradient(155deg, #4a8bfa, #2563eb);
+         color: #fff;
+         font-weight: 700;
+         padding: 15px;
+         border: none;
+         border-radius: 13px;
+         font-size: 14.5px;
+         cursor: pointer;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         gap: 8px;
+         box-shadow: 0 8px 24px -8px rgba(37, 99, 235, 0.55);
+         transition: transform .12s, box-shadow .12s, opacity .12s;
+         }
+         .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+         .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+         .hint {
+         font-size: 11px;
+         color: var(--text-faint);
+         margin: 9px 2px 0;
+         text-align: center;
+         font-family: var(--mono);
+         }
+         /* ── Toast ────────────────────────────────────────────── */
+         .toast-stack {
+         position: fixed;
+         top: 14px; left: 16px; right: 16px;
+         z-index: 100;
+         display: flex;
+         flex-direction: column;
+         gap: 8px;
+         pointer-events: none;
+         }
+         .toast {
+         background: #1a1a1d;
+         border: 1px solid var(--border);
+         border-radius: 11px;
+         padding: 12px 14px;
+         font-size: 12.5px;
+         display: flex;
+         align-items: center;
+         gap: 9px;
+         box-shadow: 0 10px 30px -10px rgba(0,0,0,0.6);
+         animation: toastIn .3s cubic-bezier(.16,1,.3,1);
+         }
+         .toast.good { border-color: rgba(52,211,153,0.3); }
+         .toast.bad { border-color: rgba(248,113,113,0.3); }
+         @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+         .toast-icon { flex-shrink: 0; }
+         .toast.good .toast-icon { color: var(--good); }
+         .toast.bad .toast-icon { color: var(--bad); }
+         /* ── Zip progress ─────────────────────────────────────── */
+         .zip-progress {
+         display: flex; align-items: center; gap: 10px;
+         padding: 13px 15px;
+         background: var(--panel);
+         border: 1px solid var(--border);
+         border-radius: var(--radius);
+         margin-bottom: 16px;
+         font-size: 12.5px;
+         font-family: var(--mono);
+         color: var(--text-dim);
+         }
+         .zip-progress svg { flex-shrink: 0; color: var(--accent); }
+         @media (prefers-reduced-motion: reduce) {
+         * { animation: none !important; transition: none !important; }
+         }
+         /* ── Organizer (repo file browser) ────────────────────── */
+         .organizer-toggle-row { display: flex; gap: 8px; margin-top: 10px; }
+         .organizer-toggle-row .btn-secondary {
+         flex: 1;
+         background: var(--panel-2);
+         border: 1px solid var(--border);
+         color: var(--text);
+         font-size: 12.5px;
+         font-weight: 600;
+         border-radius: 10px;
+         padding: 10px 12px;
+         display: flex; align-items: center; justify-content: center; gap: 7px;
+         cursor: pointer;
+         transition: border-color .15s, background .15s;
+         }
+         .organizer-toggle-row .btn-secondary:hover { border-color: #35353c; background: #1e1e22; }
+         .organizer-toggle-row .btn-secondary:active { transform: scale(0.98); }
+         .organizer-wrap {
+         display: grid;
+         grid-template-rows: 0fr;
+         transition: grid-template-rows .28s cubic-bezier(.16,1,.3,1);
+         }
+         .organizer-wrap.open { grid-template-rows: 1fr; margin-top: 12px; }
+         .organizer-inner { overflow: hidden; }
+         .organizer-panel {
+         background: var(--panel-2);
+         border: 1px solid var(--border);
+         border-radius: var(--radius-sm);
+         padding: 12px;
+         }
+         .organizer-status {
+         font-size: 12px;
+         color: var(--text-dim);
+         font-family: var(--mono);
+         display: flex; align-items: center; gap: 8px;
+         padding: 4px 2px 10px;
+         }
+         .organizer-status svg.spin { flex-shrink: 0; color: var(--accent); }
+         .organizer-list {
+         max-height: 340px;
+         overflow-y: auto;
+         display: flex;
+         flex-direction: column;
+         gap: 2px;
+         margin-bottom: 12px;
+         }
+         .organizer-row {
+         display: flex;
+         align-items: center;
+         gap: 10px;
+         padding: 8px 8px;
+         border-radius: 8px;
+         cursor: pointer;
+         }
+         .organizer-row:hover { background: var(--panel); }
+         .organizer-row input[type="checkbox"] {
+         width: 17px; height: 17px;
+         flex-shrink: 0;
+         accent-color: var(--accent);
+         cursor: pointer;
+         }
+         .organizer-row-path {
+         font-size: 12.5px;
+         font-family: var(--mono);
+         color: var(--text);
+         overflow: hidden;
+         text-overflow: ellipsis;
+         white-space: nowrap;
+         min-width: 0;
+         flex: 1;
+         }
+         .organizer-row-path .dir-part { color: var(--text-faint); }
+         .organizer-controls-row {
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         gap: 8px;
+         padding: 2px 2px 10px;
+         border-bottom: 1px solid var(--border-soft);
+         margin-bottom: 10px;
+         }
+         .organizer-select-link {
+         background: none; border: none;
+         color: var(--accent);
+         font-size: 11.5px;
+         font-family: var(--mono);
+         cursor: pointer;
+         padding: 2px 0;
+         }
+         .organizer-empty {
+         font-size: 12.5px;
+         color: var(--text-faint);
+         text-align: center;
+         padding: 24px 10px;
+         }
+         .organizer-move-row {
+         display: flex;
+         gap: 8px;
+         }
+         .organizer-move-row input[type="text"] {
+         flex: 1;
+         background: var(--panel);
+         border: 1px solid var(--border);
+         color: var(--text);
+         border-radius: 9px;
+         padding: 10px 12px;
+         font-size: 13px;
+         font-family: var(--mono);
+         outline: none;
+         min-width: 0;
+         }
+         .organizer-move-row input[type="text"]:focus { border-color: var(--accent-dim); }
+         .organizer-move-btn {
+         background: var(--accent);
+         color: #fff;
+         border: none;
+         border-radius: 9px;
+         padding: 10px 16px;
+         font-size: 12.5px;
+         font-weight: 700;
+         cursor: pointer;
+         display: flex; align-items: center; gap: 6px;
+         white-space: nowrap;
+         transition: background .15s;
+         flex-shrink: 0;
+         }
+         .organizer-move-btn:hover { background: var(--accent-dim); }
+         .organizer-move-btn:disabled { opacity: .4; cursor: not-allowed; }
+         .organizer-count-pill {
+         font-size: 11px;
+         color: var(--text-faint);
+         font-family: var(--mono);
+         padding: 3px 8px;
+         background: var(--panel);
+         border: 1px solid var(--border);
+         border-radius: 999px;
+         }
+      </style>
+   </head>
+   <body>
+      <div class="toast-stack" id="toastStack"></div>
+      <div class="header">
+         <div class="brand">
+            <div class="brand-mark">
+               <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                  <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+               </svg>
+            </div>
+            <div>
+               <h1 class="title">Pusher</h1>
+               <div class="subtitle" id="fileCountLabel">no files queued</div>
+            </div>
+         </div>
+         <div class="header-actions">
+            <button class="icon-btn" id="settingsBtn" title="Settings">
+               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+               </svg>
+            </button>
+         </div>
+      </div>
+      <!-- ── Settings panel ── -->
+      <div class="settings-wrap" id="settingsWrap">
+         <div class="settings-inner">
+            <div class="settings-panel">
+               <div class="setting-row">
+                  <div class="setting-copy">
+                     <div class="setting-name">Auto-route .js to api/</div>
+                     <div class="setting-desc">New <code>.js</code> files are placed in <code>api/</code> automatically. Flipping this rewrites paths already in the queue too.</div>
+                  </div>
+                  <label class="switch">
+                  <input type="checkbox" id="autoApiToggle">
+                  <span class="switch-track"><span class="switch-thumb"></span></span>
+                  </label>
+               </div>
+               <div class="setting-row">
+                  <div class="setting-copy">
+                     <div class="setting-name">Flatten zip folders</div>
+                     <div class="setting-desc">Drop the internal folder structure from zips and use each file's name only (still respects the api/ rule above).</div>
+                  </div>
+                  <label class="switch">
+                  <input type="checkbox" id="flattenToggle">
+                  <span class="switch-track"><span class="switch-thumb"></span></span>
+                  </label>
+               </div>
+               <div class="setting-row">
+                  <div class="setting-copy">
+                     <div class="setting-name">Skip dotfiles</div>
+                     <div class="setting-desc">Ignore hidden files from zips, like <code>.DS_Store</code> and <code>.gitignore</code>.</div>
+                  </div>
+                  <label class="switch">
+                  <input type="checkbox" id="skipDotfilesToggle">
+                  <span class="switch-track"><span class="switch-thumb"></span></span>
+                  </label>
+               </div>
+               <div class="settings-footer">
+                  <span>saved locally</span>
+                  <button class="clear-link" id="clearQueueBtn">clear queue</button>
+               </div>
+            </div>
+         </div>
+      </div>
+      <div class="panel">
+         <label class="label">Target repository</label>
+         <div class="repo-row">
+            <select id="repoSelect">
+               <option value="">Fetch repos first...</option>
+            </select>
+            <button class="icon-btn" id="fetchReposBtn" title="Fetch repos">
+               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+               </svg>
+            </button>
+         </div>
+         <div class="organizer-toggle-row">
+            <button class="btn-secondary" id="organizeBtn">
+               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+               <span id="organizeBtnLabel">Organize repo files</span>
+            </button>
+            <button class="btn-secondary" id="downloadZipBtn">
+               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
+               <span id="downloadZipBtnLabel">Download ZIP</span>
+            </button>
+         </div>
+         <div class="organizer-wrap" id="organizerWrap">
+            <div class="organizer-inner">
+               <div class="organizer-panel">
+                  <div class="organizer-status" id="organizerStatus" style="display:none;"></div>
+                  <div id="organizerBody"></div>
+               </div>
+            </div>
+         </div>
+      </div>
+      <div class="dropzone" id="dropzone">
+         <input type="file" id="fileInput" multiple accept=".js,.html,.css,.json,.zip,.md,.txt,.yml,.yaml,.svg,.png,.jpg,.jpeg">
+         <div class="dropzone-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+            </svg>
+         </div>
+         <div class="dropzone-text">Drop files or a .zip</div>
+         <div class="dropzone-sub">a zip is unpacked automatically</div>
+      </div>
+      <div id="zipProgress" style="display:none;" class="zip-progress">
+         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+         </svg>
+         <span id="zipProgressText">Reading archive...</span>
+      </div>
+      <div id="fileQueue" class="queue"></div>
+      <div id="emptyState" class="empty-state">
+         <svg width="30" height="30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-6 4h6m2 5H7a2 2 0 01-2-2V4a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V20a2 2 0 01-2 2z"></path>
+         </svg>
+         <div class="empty-state-text">queue is empty</div>
+      </div>
+      <div class="push-bar">
+         <div class="push-bar-inner">
+            <button class="btn-primary" id="pushBtn" disabled>
+               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+               </svg>
+               <span id="pushBtnLabel">Push to GitHub</span>
+            </button>
+            <p class="hint" id="hintText">.js files auto-route to api/ — tap the gear to change this</p>
+         </div>
+      </div>
+      <!-- JSZip for reading uploaded .zip archives client-side -->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+      <script>
+         const API_URL = '/api/edit-file';
+         let fileState = [];
+         let idCounter = 0;
+         
+         // ══════════════════════════════════════════════════════════
+         // SETTINGS — persisted to localStorage, applied live
+         // ══════════════════════════════════════════════════════════
+         const SETTINGS_KEY = 'pusher.settings.v1';
+         const defaultSettings = { autoApi: true, flatten: false, skipDotfiles: true };
+         
+         function loadSettings() {
+           try {
+             const raw = localStorage.getItem(SETTINGS_KEY);
+             if (!raw) return { ...defaultSettings };
+             return { ...defaultSettings, ...JSON.parse(raw) };
+           } catch (_) {
+             return { ...defaultSettings };
+           }
+         }
+         function saveSettings() {
+           try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
+         }
+         
+         let settings = loadSettings();
+         
+         const autoApiToggle = document.getElementById('autoApiToggle');
+         const flattenToggle = document.getElementById('flattenToggle');
+         const skipDotfilesToggle = document.getElementById('skipDotfilesToggle');
+         const settingsWrap = document.getElementById('settingsWrap');
+         const settingsBtn = document.getElementById('settingsBtn');
+         const hintText = document.getElementById('hintText');
+         
+         autoApiToggle.checked = settings.autoApi;
+         flattenToggle.checked = settings.flatten;
+         skipDotfilesToggle.checked = settings.skipDotfiles;
+         updateHint();
+         
+         settingsBtn.addEventListener('click', () => {
+           settingsWrap.classList.toggle('open');
+         });
+         
+         autoApiToggle.addEventListener('change', () => {
+           settings.autoApi = autoApiToggle.checked;
+           saveSettings();
+           reconcileApiRouting();
+           updateHint();
+           showToast(settings.autoApi ? 'Auto api/ routing enabled — .js paths updated' : 'Auto api/ routing disabled — api/ stripped from .js paths', 'good');
+         });
+         flattenToggle.addEventListener('change', () => {
+           settings.flatten = flattenToggle.checked;
+           saveSettings();
+         });
+         skipDotfilesToggle.addEventListener('change', () => {
+           settings.skipDotfiles = skipDotfilesToggle.checked;
+           saveSettings();
+         });
+         
+         document.getElementById('clearQueueBtn').addEventListener('click', () => {
+           if (fileState.length === 0) return;
+           fileState = [];
+           renderQueue();
+           showToast('Queue cleared', 'good');
+         });
+         
+         function updateHint() {
+           hintText.textContent = settings.autoApi
+             ? '.js files auto-route to api/ — tap the gear to change this'
+             : 'auto api/ routing is off — paths are used as-is';
+         }
+         
+         // Live-rewrite every queued .js path when the toggle flips, without
+         // touching files a person has already hand-edited away from the
+         // convention (tracked via userEdited on each file).
+         function reconcileApiRouting() {
+           let changed = false;
+           fileState.forEach(f => {
+             if (f.userEdited) return; // respect manual edits
+             if (!f.originalName.toLowerCase().endsWith('.js')) return;
+             const next = computePath(f.originalName, f.relPath);
+             if (next !== f.path) {
+               f.path = next;
+               f._flash = true;
+               changed = true;
+             }
+           });
+           if (changed) renderQueue();
+         }
+         
+         // ══════════════════════════════════════════════════════════
+         // PATH COMPUTATION
+         // ══════════════════════════════════════════════════════════
+         function computePath(fileName, relPath) {
+           const base = settings.flatten ? fileName : (relPath || fileName);
+           if (fileName.toLowerCase().endsWith('.js')) {
+             const justName = fileName;
+             return settings.autoApi ? ('api/' + justName) : (settings.flatten ? justName : (relPath || justName));
+           }
+           return base;
+         }
+         
+         // ══════════════════════════════════════════════════════════
+         // REPOS
+         // ══════════════════════════════════════════════════════════
+         async function loadRepos() {
+           const select = document.getElementById('repoSelect');
+           const previouslySelected = select.value;
+           select.innerHTML = '<option>Loading...</option>';
+           try {
+             const res = await fetch(`${API_URL}?fetchRepos=true`);
+             if (!res.ok) {
+               const err = await res.json().catch(() => ({}));
+               select.innerHTML = `<option>${err.error || 'API Error'}</option>`;
+               return;
+             }
+             const repos = await res.json();
+             select.innerHTML = (repos && repos.length)
+               ? repos.map(r => `<option value="${r.full_name}">${r.name}</option>`).join('')
+               : '<option>No repos found</option>';
+             if (previouslySelected && repos.some(r => r.full_name === previouslySelected)) {
+               select.value = previouslySelected;
+             }
+           } catch (err) {
+             select.innerHTML = '<option>Network error</option>';
+           }
+         }
+         document.getElementById('fetchReposBtn').addEventListener('click', loadRepos);
+         loadRepos();
+         
+         // ══════════════════════════════════════════════════════════
+         // FILE INTAKE — plain files + zip extraction
+         // ══════════════════════════════════════════════════════════
+         const dropzone = document.getElementById('dropzone');
+         const fileInput = document.getElementById('fileInput');
+         const zipProgress = document.getElementById('zipProgress');
+         const zipProgressText = document.getElementById('zipProgressText');
+         
+         fileInput.addEventListener('change', async (e) => {
+           await intake(Array.from(e.target.files));
+           e.target.value = '';
+         });
+         
+         ['dragenter', 'dragover'].forEach(evt =>
+           dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); })
+         );
+         ['dragleave', 'drop'].forEach(evt =>
+           dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('drag-over'); })
+         );
+         dropzone.addEventListener('drop', async (e) => {
+           e.preventDefault();
+           const dt = e.dataTransfer;
+           if (!dt) return;
+           await intake(Array.from(dt.files || []));
+         });
+         
+         async function intake(files) {
+           for (const file of files) {
+             if (file.name.toLowerCase().endsWith('.zip')) {
+               await intakeZip(file);
+             } else {
+               await addSingleFile(file, file.name, file.webkitRelativePath || '');
+             }
+           }
+           renderQueue();
+         }
+         
+         async function intakeZip(zipFile) {
+           zipProgress.style.display = 'flex';
+           zipProgressText.textContent = `Reading ${zipFile.name}...`;
+           try {
+             const zip = await JSZip.loadAsync(zipFile);
+             const entries = Object.values(zip.files).filter(e => !e.dir);
+             let done = 0;
+             for (const entry of entries) {
+               const parts = entry.name.split('/');
+               const leafName = parts[parts.length - 1];
+               if (!leafName) { continue; }
+               if (settings.skipDotfiles && leafName.startsWith('.')) { continue; }
+               // ignore common junk from zip exports
+               if (/(^|\/)__MACOSX(\/|$)/.test(entry.name)) continue;
+               done++;
+               zipProgressText.textContent = `Extracting ${leafName} (${done}/${entries.length})...`;
+               const blob = await entry.async('blob');
+               const asFile = new File([blob], leafName, { type: blob.type || guessMime(leafName) });
+               await addSingleFile(asFile, leafName, entry.name);
+             }
+             showToast(`Unpacked ${done} file${done === 1 ? '' : 's'} from ${zipFile.name}`, 'good');
+           } catch (err) {
+             showToast(`Couldn't read ${zipFile.name} — not a valid zip?`, 'bad');
+           } finally {
+             zipProgress.style.display = 'none';
+           }
+         }
+         
+         function guessMime(name) {
+           if (name.endsWith('.js')) return 'text/javascript';
+           if (name.endsWith('.html')) return 'text/html';
+           if (name.endsWith('.css')) return 'text/css';
+           if (name.endsWith('.json')) return 'application/json';
+           return 'application/octet-stream';
+         }
+         
+         async function addSingleFile(file, fileName, relPath) {
+           const content = await toBase64(file);
+           const path = computePath(fileName, relPath);
+           fileState.push({
+             id: ++idCounter,
+             originalName: fileName,
+             relPath,
+             content,
+             path,
+             size: file.size,
+             status: 'pending',
+             userEdited: false,
+           });
+         }
+         
+         function toBase64(file) {
+           return new Promise((resolve, reject) => {
+             const reader = new FileReader();
+             reader.onload = () => resolve(reader.result.split(',')[1]);
+             reader.onerror = reject;
+             reader.readAsDataURL(file);
+           });
+         }
+         
+         function formatSize(bytes) {
+           if (bytes < 1024) return bytes + ' B';
+           if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+           return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+         }
+         
+         function extOf(name) {
+           const m = /\.([a-z0-9]+)$/i.exec(name);
+           return m ? m[1].toLowerCase() : '';
+         }
+         function chipFor(name) {
+           const ext = extOf(name);
+           if (ext === 'js') return { cls: 'chip-js', label: 'JS' };
+           if (ext === 'html' || ext === 'htm') return { cls: 'chip-html', label: 'H' };
+           if (ext === 'css') return { cls: 'chip-css', label: 'C' };
+           if (ext === 'json') return { cls: 'chip-json', label: '{}' };
+           return { cls: 'chip-other', label: (ext || '?').slice(0, 2).toUpperCase() };
+         }
+         
+         // ══════════════════════════════════════════════════════════
+         // QUEUE MANAGEMENT
+         // ══════════════════════════════════════════════════════════
+         window.updatePath = (id, newPath) => {
+           const file = fileState.find(f => f.id === id);
+           if (file) { file.path = newPath; file.userEdited = true; }
+         };
+         
+         window.removeFile = (id) => {
+           fileState = fileState.filter(f => f.id !== id);
+           renderQueue();
+         };
+         
+         function statusBadge(status) {
+           if (status === 'done') return `<span class="file-status status-done"><svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>pushed</span>`;
+           if (status === 'error') return `<span class="file-status status-error"><svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>failed</span>`;
+           if (status === 'pushing') return `<span class="file-status status-pushing"><svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>pushing</span>`;
+           return `<span class="file-status status-pending">pending</span>`;
+         }
+         
+         function renderQueue() {
+           const container = document.getElementById('fileQueue');
+           const pushBtn = document.getElementById('pushBtn');
+           const emptyState = document.getElementById('emptyState');
+           const fileCountLabel = document.getElementById('fileCountLabel');
+         
+           emptyState.style.display = fileState.length === 0 ? 'block' : 'none';
+           container.style.display = fileState.length === 0 ? 'none' : 'flex';
+         
+           fileCountLabel.textContent = fileState.length === 0
+             ? 'no files queued'
+             : `${fileState.length} file${fileState.length === 1 ? '' : 's'} queued`;
+         
+           container.innerHTML = fileState.map((f, i) => {
+             const chip = chipFor(f.originalName);
+             const cardClass = f.status === 'done' ? ' is-done' : f.status === 'error' ? ' is-error' : '';
+             const inputClass = f._flash ? ' path-rewrite-flash' : '';
+             return `
+             <div class="file-card${cardClass}" style="animation-delay:${Math.min(i, 8) * 25}ms">
+               <div class="file-card-top">
+                 <div class="file-meta">
+                   <span class="file-type-chip ${chip.cls}">${chip.label}</span>
+                   <div style="min-width:0;">
+                     <div class="file-name">${escapeHtml(f.originalName)}</div>
+                     <div class="file-size">${formatSize(f.size)}</div>
+                   </div>
+                 </div>
+                 <div style="display:flex;align-items:center;gap:8px;">
+                   ${statusBadge(f.status)}
+                   <button class="remove-btn" onclick="removeFile(${f.id})" title="Remove">
+                     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                   </button>
+                 </div>
+               </div>
+               <div class="path-input-wrap">
+                 <svg class="path-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                 <input class="${inputClass}" type="text" value="${escapeHtml(f.path)}" onchange="updatePath(${f.id}, this.value)">
+               </div>
+             </div>`;
+           }).join('');
+         
+           // clear one-shot flash flag after paint
+           fileState.forEach(f => f._flash = false);
+         
+           pushBtn.disabled = fileState.length === 0;
+         }
+         
+         function escapeHtml(s) {
+           return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+         }
+         
+         // ══════════════════════════════════════════════════════════
+         // TOASTS
+         // ══════════════════════════════════════════════════════════
+         function showToast(message, kind = 'good') {
+           const stack = document.getElementById('toastStack');
+           const el = document.createElement('div');
+           el.className = `toast ${kind}`;
+           const icon = kind === 'good'
+             ? '<svg class="toast-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>'
+             : '<svg class="toast-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A1.5 1.5 0 003.5 20.5h17a1.5 1.5 0 001.39-2.46L13.71 3.86a1.5 1.5 0 00-2.42 0z"/></svg>';
+           el.innerHTML = `${icon}<span>${escapeHtml(message)}</span>`;
+           stack.appendChild(el);
+           setTimeout(() => {
+             el.style.transition = 'opacity .25s, transform .25s';
+             el.style.opacity = '0';
+             el.style.transform = 'translateY(-8px)';
+             setTimeout(() => el.remove(), 250);
+           }, 3400);
+         }
+         
+         // ══════════════════════════════════════════════════════════
+         // PUSH
+         // ══════════════════════════════════════════════════════════
+         document.getElementById('pushBtn').addEventListener('click', async () => {
+           const repo = document.getElementById('repoSelect').value;
+           if (!repo) return showToast('Select a repository first', 'bad');
+           if (fileState.length === 0) return showToast('Add at least one file', 'bad');
+         
+           const btn = document.getElementById('pushBtn');
+           const label = document.getElementById('pushBtnLabel');
+           btn.disabled = true;
+           const originalLabel = label.textContent;
+         
+           let successCount = 0;
+           let failCount = 0;
+         
+           for (const f of fileState) {
+             f.status = 'pushing';
+             renderQueue();
+             label.textContent = `Pushing ${f.originalName}...`;
+             try {
+               let sha;
+               try {
+                 const getRes = await fetch(`${API_URL}?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(f.path)}`);
+                 if (getRes.ok) {
+                   const existing = await getRes.json();
+                   if (existing && existing.sha) sha = existing.sha;
+                 }
+               } catch (_) { /* file probably doesn't exist yet */ }
+         
+               const putRes = await fetch(API_URL, {
+                 method: 'PUT',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ repo, path: f.path, content: f.content, sha })
+               });
+         
+               if (putRes.ok) {
+                 f.status = 'done';
+                 successCount++;
+               } else {
+                 f.status = 'error';
+                 failCount++;
+               }
+             } catch (err) {
+               f.status = 'error';
+               failCount++;
+             }
+             renderQueue();
+           }
+         
+           label.textContent = originalLabel;
+           btn.disabled = fileState.length === 0;
+         
+           if (failCount === 0) {
+             showToast(`Pushed ${successCount} file${successCount === 1 ? '' : 's'} to GitHub`, 'good');
+             fileState = [];
+             renderQueue();
+           } else {
+             showToast(`${successCount} pushed, ${failCount} failed — check status badges`, 'bad');
+           }
+         });
+         
+         renderQueue();
+
+         // ══════════════════════════════════════════════════════════
+         // ORGANIZER — browse repo files, checkbox + move into a folder
+         // ══════════════════════════════════════════════════════════
+         const organizeBtn = document.getElementById('organizeBtn');
+         const organizeBtnLabel = document.getElementById('organizeBtnLabel');
+         const organizerWrap = document.getElementById('organizerWrap');
+         const organizerStatus = document.getElementById('organizerStatus');
+         const organizerBody = document.getElementById('organizerBody');
+
+         let repoTree = [];       // flat list of { path, sha } for every file in the repo
+         let repoTreeLoadedFor = null; // which repo full_name the tree belongs to
+         let selectedPaths = new Set();
+
+         organizeBtn.addEventListener('click', async () => {
+           const repo = document.getElementById('repoSelect').value;
+           if (!repo || repo.indexOf('/') === -1) {
+             return showToast('Select a repository first', 'bad');
+           }
+
+           const isOpen = organizerWrap.classList.contains('open');
+           if (isOpen) {
+             organizerWrap.classList.remove('open');
+             return;
+           }
+           organizerWrap.classList.add('open');
+
+           if (repoTreeLoadedFor !== repo) {
+             await loadRepoTree(repo);
+           } else {
+             renderOrganizer();
+           }
+         });
+
+         // Recursively walk the repo's contents using the existing listFiles
+         // endpoint (GitHub contents API under the hood), since there's no
+         // single recursive-tree call wired up on the backend.
+         async function loadRepoTree(repo) {
+           selectedPaths = new Set();
+           repoTree = [];
+           organizerBody.innerHTML = '';
+           organizerStatus.style.display = 'flex';
+           organizerStatus.innerHTML = spinnerHtml('Scanning repository...');
+           organizeBtn.disabled = true;
+           organizeBtnLabel.textContent = 'Scanning...';
+
+           try {
+             await walkDir(repo, '');
+             repoTreeLoadedFor = repo;
+             organizerStatus.style.display = 'none';
+             renderOrganizer();
+           } catch (err) {
+             organizerStatus.style.display = 'flex';
+             organizerStatus.innerHTML = `<span style="color:var(--bad)">Couldn't load repo files — ${escapeHtml(err.message || 'unknown error')}</span>`;
+             organizerBody.innerHTML = '';
+           } finally {
+             organizeBtn.disabled = false;
+             organizeBtnLabel.textContent = 'Organize repo files';
+           }
+         }
+
+         async function walkDir(repo, dirPath) {
+           const contentsPath = dirPath ? `${repo}/contents/${dirPath}` : `${repo}/contents`;
+           const res = await fetch(`${API_URL}?listFiles=${encodeURIComponent(contentsPath)}`);
+           if (!res.ok) {
+             const err = await res.json().catch(() => ({}));
+             throw new Error(err.error || `Failed to list ${dirPath || '/'}`);
+           }
+           const entries = await res.json();
+           for (const entry of entries) {
+             if (entry.type === 'dir') {
+               await walkDir(repo, entry.path);
+             } else if (entry.type === 'file') {
+               repoTree.push({ path: entry.path, sha: entry.sha, size: entry.size });
+             }
+           }
+         }
+
+         function spinnerHtml(text) {
+           return `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>${escapeHtml(text)}</span>`;
+         }
+
+         function renderOrganizer() {
+           if (repoTree.length === 0) {
+             organizerBody.innerHTML = `<div class="organizer-empty">No files found in this repo</div>`;
+             return;
+           }
+
+           const sorted = [...repoTree].sort((a, b) => a.path.localeCompare(b.path));
+
+           const rows = sorted.map(f => {
+             const checked = selectedPaths.has(f.path) ? 'checked' : '';
+             const lastSlash = f.path.lastIndexOf('/');
+             const dirPart = lastSlash >= 0 ? escapeHtml(f.path.slice(0, lastSlash + 1)) : '';
+             const namePart = escapeHtml(lastSlash >= 0 ? f.path.slice(lastSlash + 1) : f.path);
+             return `
+             <label class="organizer-row">
+               <input type="checkbox" data-path="${escapeHtml(f.path)}" ${checked} onchange="window.toggleOrganizerPath(this)">
+               <span class="organizer-row-path"><span class="dir-part">${dirPart}</span>${namePart}</span>
+             </label>`;
+           }).join('');
+
+           organizerBody.innerHTML = `
+             <div class="organizer-controls-row">
+               <span class="organizer-count-pill" id="organizerCountPill">${selectedPaths.size} selected</span>
+               <div style="display:flex; gap:12px;">
+                 <button class="organizer-select-link" onclick="window.organizerSelectAll()">select all</button>
+                 <button class="organizer-select-link" onclick="window.organizerSelectNone()">clear</button>
+               </div>
+             </div>
+             <div class="organizer-list">${rows}</div>
+             <div class="organizer-move-row">
+               <input type="text" id="organizerFolderInput" placeholder="folder name, e.g. css">
+               <button class="organizer-move-btn" id="organizerMoveBtn" onclick="window.organizerMoveSelected()">
+                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                 Move
+               </button>
+             </div>`;
+         }
+
+         window.toggleOrganizerPath = (checkbox) => {
+           const path = checkbox.getAttribute('data-path');
+           if (checkbox.checked) selectedPaths.add(path);
+           else selectedPaths.delete(path);
+           const pill = document.getElementById('organizerCountPill');
+           if (pill) pill.textContent = `${selectedPaths.size} selected`;
+         };
+
+         window.organizerSelectAll = () => {
+           selectedPaths = new Set(repoTree.map(f => f.path));
+           renderOrganizer();
+         };
+         window.organizerSelectNone = () => {
+           selectedPaths = new Set();
+           renderOrganizer();
+         };
+
+         window.organizerMoveSelected = async () => {
+           const repo = document.getElementById('repoSelect').value;
+           const folderInput = document.getElementById('organizerFolderInput');
+           const moveBtn = document.getElementById('organizerMoveBtn');
+           let folder = (folderInput.value || '').trim().replace(/^\/+|\/+$/g, '');
+
+           if (!folder) return showToast('Enter a folder name first', 'bad');
+           if (selectedPaths.size === 0) return showToast('Checkbox at least one file', 'bad');
+
+           const targets = repoTree.filter(f => selectedPaths.has(f.path));
+           moveBtn.disabled = true;
+           organizerStatus.style.display = 'flex';
+
+           let moved = 0, failed = 0;
+           for (const f of targets) {
+             const leafName = f.path.slice(f.path.lastIndexOf('/') + 1);
+             const newPath = `${folder}/${leafName}`;
+
+             if (newPath === f.path) { moved++; continue; } // already there
+
+             organizerStatus.innerHTML = spinnerHtml(`Moving ${leafName} (${moved + failed + 1}/${targets.length})...`);
+
+             try {
+               // 1. fetch current content + sha at the old path
+               const getRes = await fetch(`${API_URL}?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(f.path)}`);
+               if (!getRes.ok) throw new Error('read failed');
+               const fileData = await getRes.json();
+
+               // 2. check if something already exists at the destination (to get its sha, for overwrite)
+               let destSha;
+               try {
+                 const destRes = await fetch(`${API_URL}?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(newPath)}`);
+                 if (destRes.ok) {
+                   const destData = await destRes.json();
+                   if (destData && destData.sha) destSha = destData.sha;
+                 }
+               } catch (_) { /* destination doesn't exist yet, that's fine */ }
+
+               // 3. create file at new path
+               const putRes = await fetch(API_URL, {
+                 method: 'PUT',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ repo, path: newPath, content: fileData.content, sha: destSha })
+               });
+               if (!putRes.ok) throw new Error('write failed');
+
+               // 4. delete the old file
+               const delRes = await fetch(API_URL, {
+                 method: 'DELETE',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({ repo, path: f.path, sha: fileData.sha, deleteFile: true })
+               });
+               if (!delRes.ok) throw new Error('delete of original failed');
+
+               // update local tree state so re-render reflects the move
+               f.path = newPath;
+               moved++;
+             } catch (err) {
+               failed++;
+             }
+           }
+
+           organizerStatus.style.display = 'none';
+           moveBtn.disabled = false;
+           selectedPaths = new Set();
+           renderOrganizer();
+
+           if (failed === 0) {
+             showToast(`Moved ${moved} file${moved === 1 ? '' : 's'} into ${folder}/`, 'good');
+           } else {
+             showToast(`${moved} moved, ${failed} failed`, 'bad');
+           }
+         };
+
+         // ══════════════════════════════════════════════════════════
+         // DOWNLOAD REPO AS ZIP
+         // ══════════════════════════════════════════════════════════
+         const downloadZipBtn = document.getElementById('downloadZipBtn');
+         const downloadZipBtnLabel = document.getElementById('downloadZipBtnLabel');
+
+         downloadZipBtn.addEventListener('click', async () => {
+           const repoFull = document.getElementById('repoSelect').value;
+           if (!repoFull || repoFull.indexOf('/') === -1) {
+             return showToast('Select a repository first', 'bad');
+           }
+           if (typeof JSZip === 'undefined') {
+             return showToast('Zip library failed to load — check your connection', 'bad');
+           }
+
+           downloadZipBtn.disabled = true;
+           const originalLabel = downloadZipBtnLabel.textContent;
+
+           try {
+             // Reuse the tree if we already scanned this exact repo, otherwise walk it fresh
+             let files;
+             if (repoTreeLoadedFor === repoFull && repoTree.length > 0) {
+               files = repoTree;
+             } else {
+               downloadZipBtnLabel.textContent = 'Scanning...';
+               const tmp = [];
+               const prevTree = repoTree;
+               repoTree = tmp;
+               await walkDir(repoFull, '');
+               files = tmp;
+               repoTree = prevTree; // don't disturb organizer state if it wasn't already loaded for this repo
+             }
+
+             if (files.length === 0) {
+               showToast('No files found in this repo', 'bad');
+               return;
+             }
+
+             const zip = new JSZip();
+             let done = 0;
+             for (const f of files) {
+               downloadZipBtnLabel.textContent = `Zipping ${done + 1}/${files.length}...`;
+               const res = await fetch(`${API_URL}?repo=${encodeURIComponent(repoFull)}&path=${encodeURIComponent(f.path)}`);
+               if (!res.ok) { done++; continue; }
+               const data = await res.json();
+               if (data && typeof data.content === 'string') {
+                 // GitHub contents API returns base64 (with newlines) for file content
+                 zip.file(f.path, data.content.replace(/\n/g, ''), { base64: true });
+               }
+               done++;
+             }
+
+             downloadZipBtnLabel.textContent = 'Building zip...';
+             const blob = await zip.generateAsync({ type: 'blob' });
+             const repoName = repoFull.split('/')[1] || repoFull;
+             const url = URL.createObjectURL(blob);
+             const a = document.createElement('a');
+             a.href = url;
+             a.download = `${repoName}.zip`;
+             document.body.appendChild(a);
+             a.click();
+             a.remove();
+             URL.revokeObjectURL(url);
+
+             showToast(`Downloaded ${repoName}.zip (${files.length} files)`, 'good');
+           } catch (err) {
+             showToast(`Zip failed — ${err.message || 'unknown error'}`, 'bad');
+           } finally {
+             downloadZipBtn.disabled = false;
+             downloadZipBtnLabel.textContent = originalLabel;
+           }
+         });
+      </script>
+   </body>
+</html>
