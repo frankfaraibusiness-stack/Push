@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase Nuclear Delete</title>
+  <style>
+    :root {
+      --danger: #ff4d4d;
+      --danger-dark: #cc0000;
+      --bg: #0f0f13;
+      --card: #1e1e24;
+      --text: #f0f0f0;
+      --muted: #aaa;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      border: 1px solid #2a2a33;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      color: var(--danger);
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .secret-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #2a2a33;
+      border: 1px solid #3a3a44;
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 1rem;
+      margin-bottom: 20px;
+      transition: border 0.2s;
+    }
+
+    .secret-input:focus {
+      outline: none;
+      border-color: var(--danger);
+    }
+
+    .delete-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--danger);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .delete-btn:hover {
+      background: var(--danger-dark);
+    }
+
+    .delete-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .delete-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    .delete-btn.loading .spinner {
+      display: block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status {
+      margin-top: 20px;
+      background: #111;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #ccc;
+    }
+
+    .status.success {
+      border-left: 4px solid #4caf50;
+    }
+
+    .status.error {
+      border-left: 4px solid var(--danger);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚠️ Nuclear Delete</h1>
+    <p class="subtitle">
+      This will permanently delete <strong>all</strong> Firebase Authentication users
+      and <strong>all</strong> Firestore data. This action cannot be undone.
+    </p>
+
+    <input 
+      type="password" 
+      class="secret-input" 
+      id="secretInput" 
+      placeholder="Enter secret key" 
+      value="delete-everything-123"
+    >
+
+    <button class="delete-btn" id="deleteBtn">
+      <span class="spinner"></span>
+      <span id="btnText">Delete Everything</span>
+    </button>
+
+    <div class="status" id="statusBox">Ready. Enter secret and click delete.</div>
+  </div>
+
+  <script>
+    const secretInput = document.getElementById('secretInput');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const btnText = document.getElementById('btnText');
+    const statusBox = document.getElementById('statusBox');
+
+    deleteBtn.addEventListener('click', async () => {
+      const secret = secretInput.value.trim();
+      if (!secret) {
+        statusBox.textContent = '❌ Please enter the secret key.';
+        statusBox.className = 'status error';
+        return;
+      }
+
+      if (!confirm('Are you absolutely sure? This deletes ALL users and Firestore data.')) {
+        return;
+      }
+
+      deleteBtn.classList.add('loading');
+      deleteBtn.disabled = true;
+      btnText.textContent = 'Deleting...';
+      statusBox.textContent = 'Starting deletion...';
+      statusBox.className = 'status';
+
+      try {
+        const response = await fetch('/api/deleteAll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          statusBox.textContent = `✅ Deletion complete!\n\n` +
+            `Auth users deleted: ${data.results.authUsersDeleted}\n` +
+            `Firestore collections deleted: ${data.results.firestoreCollectionsDeleted}`;
+          statusBox.className = 'status success';
+        } else {
+          statusBox.textContent = `❌ Error: ${data.error || response.statusText}`;
+          statusBox.className = 'status error';
+        }
+      } catch (err) {
+        statusBox.textContent = `❌ Network error: ${err.message}`;
+        statusBox.className = 'status error';
+      } finally {
+        deleteBtn.classList.remove('loading');
+        deleteBtn.disabled = false;
+        btnText.textContent = 'Delete Everything';
+      }
+    });
+  </script>
+</body>
+  </html>
