@@ -556,6 +556,45 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          border: 1px solid var(--border);
          border-radius: 999px;
          }
+         .organizer-row-del {
+         background: none;
+         border: none;
+         color: var(--text-faint);
+         flex-shrink: 0;
+         width: 26px; height: 26px;
+         display: flex; align-items: center; justify-content: center;
+         border-radius: 7px;
+         cursor: pointer;
+         transition: color .15s, background .15s;
+         }
+         .organizer-row-del:hover { color: var(--bad); background: var(--bad-dim); }
+         .organizer-danger-row {
+         display: flex;
+         gap: 8px;
+         margin-top: 8px;
+         }
+         .organizer-delete-btn {
+         background: var(--bad-dim);
+         color: var(--bad);
+         border: 1px solid rgba(248,113,113,0.3);
+         border-radius: 9px;
+         padding: 10px 14px;
+         font-size: 12.5px;
+         font-weight: 700;
+         cursor: pointer;
+         display: flex; align-items: center; justify-content: center; gap: 6px;
+         white-space: nowrap;
+         transition: background .15s;
+         flex: 1;
+         }
+         .organizer-delete-btn:hover { background: rgba(248,113,113,0.2); }
+         .organizer-delete-btn:disabled { opacity: .4; cursor: not-allowed; }
+         .organizer-delete-all-btn {
+         background: var(--bad);
+         color: #fff;
+         border: none;
+         }
+         .organizer-delete-all-btn:hover { background: #e05f5f; }
       </style>
    </head>
    <body>
@@ -1187,6 +1226,9 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              <label class="organizer-row">
                <input type="checkbox" data-path="${escapeHtml(f.path)}" ${checked} onchange="window.toggleOrganizerPath(this)">
                <span class="organizer-row-path"><span class="dir-part">${dirPart}</span>${namePart}</span>
+               <button type="button" class="organizer-row-del" title="Delete this file" onclick="window.organizerDeleteOne('${escapeHtml(f.path).replace(/'/g, "\\'")}')">
+                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+               </button>
              </label>`;
            }).join('');
 
@@ -1204,6 +1246,16 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                <button class="organizer-move-btn" id="organizerMoveBtn" onclick="window.organizerMoveSelected()">
                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                  Move
+               </button>
+             </div>
+             <div class="organizer-danger-row">
+               <button type="button" class="organizer-delete-btn" id="organizerDeleteSelectedBtn" onclick="window.organizerDeleteSelected()">
+                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
+                 Delete selected
+               </button>
+               <button type="button" class="organizer-delete-btn organizer-delete-all-btn" id="organizerDeleteAllBtn" onclick="window.organizerDeleteAll()">
+                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
+                 Delete ALL files
                </button>
              </div>`;
          }
@@ -1223,6 +1275,126 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          window.organizerSelectNone = () => {
            selectedPaths = new Set();
            renderOrganizer();
+         };
+
+         // ══════════════════════════════════════════════════════════
+         // DELETE FILES (single / selected / all)
+         // ══════════════════════════════════════════════════════════
+         async function deleteOneFile(repo, f) {
+           const res = await fetch(API_URL, {
+             method: 'DELETE',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ repo, path: f.path, sha: f.sha, deleteFile: true })
+           });
+           if (!res.ok) {
+             const err = await res.json().catch(() => ({}));
+             throw new Error(err.error || `Failed to delete ${f.path}`);
+           }
+         }
+
+         window.organizerDeleteOne = async (path) => {
+           const repo = document.getElementById('repoSelect').value;
+           if (!repo) return showToast('Select a repository first', 'bad');
+           const f = repoTree.find(x => x.path === path);
+           if (!f) return;
+           if (!confirm(`Delete ${path}? This cannot be undone.`)) return;
+
+           organizerStatus.style.display = 'flex';
+           organizerStatus.innerHTML = spinnerHtml(`Deleting ${path}...`);
+           try {
+             await deleteOneFile(repo, f);
+             repoTree = repoTree.filter(x => x.path !== path);
+             selectedPaths.delete(path);
+             renderOrganizer();
+             showToast(`Deleted ${path}`, 'good');
+           } catch (err) {
+             showToast(err.message || 'Delete failed', 'bad');
+           } finally {
+             organizerStatus.style.display = 'none';
+           }
+         };
+
+         window.organizerDeleteSelected = async () => {
+           const repo = document.getElementById('repoSelect').value;
+           if (!repo) return showToast('Select a repository first', 'bad');
+           if (selectedPaths.size === 0) return showToast('Checkbox at least one file', 'bad');
+
+           const targets = repoTree.filter(f => selectedPaths.has(f.path));
+           if (!confirm(`Delete ${targets.length} selected file${targets.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+
+           const delBtn = document.getElementById('organizerDeleteSelectedBtn');
+           const delAllBtn = document.getElementById('organizerDeleteAllBtn');
+           if (delBtn) delBtn.disabled = true;
+           if (delAllBtn) delAllBtn.disabled = true;
+           organizerStatus.style.display = 'flex';
+
+           let deleted = 0, failed = 0;
+           const deletedPaths = new Set();
+           for (const f of targets) {
+             organizerStatus.innerHTML = spinnerHtml(`Deleting ${f.path} (${deleted + failed + 1}/${targets.length})...`);
+             try {
+               await deleteOneFile(repo, f);
+               deletedPaths.add(f.path);
+               deleted++;
+             } catch (err) {
+               failed++;
+             }
+           }
+
+           repoTree = repoTree.filter(f => !deletedPaths.has(f.path));
+           organizerStatus.style.display = 'none';
+           selectedPaths = new Set();
+           renderOrganizer();
+
+           if (failed === 0) {
+             showToast(`Deleted ${deleted} file${deleted === 1 ? '' : 's'}`, 'good');
+           } else {
+             showToast(`${deleted} deleted, ${failed} failed`, 'bad');
+           }
+         };
+
+         window.organizerDeleteAll = async () => {
+           const repo = document.getElementById('repoSelect').value;
+           if (!repo) return showToast('Select a repository first', 'bad');
+           if (repoTree.length === 0) return showToast('No files to delete', 'bad');
+
+           const confirmText = `delete all ${repoTree.length}`;
+           const typed = prompt(`This will permanently delete ALL ${repoTree.length} files in ${repo}.\n\nType "${confirmText}" to confirm:`);
+           if (typed !== confirmText) {
+             if (typed !== null) showToast('Confirmation text did not match — cancelled', 'bad');
+             return;
+           }
+
+           const targets = [...repoTree];
+           const delBtn = document.getElementById('organizerDeleteSelectedBtn');
+           const delAllBtn = document.getElementById('organizerDeleteAllBtn');
+           if (delBtn) delBtn.disabled = true;
+           if (delAllBtn) delAllBtn.disabled = true;
+           organizerStatus.style.display = 'flex';
+
+           let deleted = 0, failed = 0;
+           const stillHere = [];
+           for (const f of targets) {
+             organizerStatus.innerHTML = spinnerHtml(`Deleting ${f.path} (${deleted + failed + 1}/${targets.length})...`);
+             try {
+               await deleteOneFile(repo, f);
+               deleted++;
+             } catch (err) {
+               failed++;
+               stillHere.push(f);
+             }
+           }
+
+           repoTree = stillHere;
+           organizerStatus.style.display = 'none';
+           selectedPaths = new Set();
+           renderOrganizer();
+
+           if (failed === 0) {
+             showToast(`Deleted all ${deleted} files`, 'good');
+           } else {
+             showToast(`${deleted} deleted, ${failed} failed`, 'bad');
+           }
          };
 
          window.organizerMoveSelected = async () => {
