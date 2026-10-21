@@ -1,0 +1,315 @@
+/* ============================================================
+ * global-nav.css — GlobalNav (components/layout/GlobalNav.tsx).
+ *
+ * One nav, rendered once from app/layout.tsx, present on every route.
+ * Mobile (<860px): fixed bottom glass pill with quiet, understated
+ * icon-only side tabs (Home/Dashboard/Settings/Profile) and a raised
+ * lime "+" Add site button in the center — the only strong shape on
+ * the bar. Desktop (>=860px): a floating pill nav pinned near the
+ * top, same five items laid out horizontally with an animated hover
+ * state (unchanged).
+ * ============================================================ */
+
+  .gnav-root {
+    position: fixed;
+    left: 0;
+    right: 0;
+    /* Above normal page content, but below the slide-out sidebar's
+       scrim/panel (z-index 40/50 in footer-sidebar.css — so an open
+       sidebar fully covers this nav's bottom bar rather than it
+       poking through the drawer's lower edge) and below every modal
+       overlay (auth: 100/110, connect wizard: 200/210). */
+    z-index: 30;
+    display: flex;
+    justify-content: center;
+    pointer-events: none; /* re-enabled on .gnav-pill itself */
+  }
+
+  .gnav-pill {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+  }
+
+  .gnav-item {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gnav-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .gnav-item-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .gnav-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .gnav-avatar-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cream-deep);
+    color: var(--ink);
+    font-weight: 700;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .gnav-add {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--lime);
+    color: var(--lime-ink);
+    border: 1.5px solid var(--lime-ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .gnav-add svg {
+    display: block;
+  }
+
+  /* ============================================================
+   * Mobile: fixed bottom app bar, <860px.
+   *
+   * Redesign: the 4 side tabs (Home/Dashboard left, Settings/Profile
+   * right) are now plain, quiet icon buttons with no box/border of
+   * their own — just a soft pill of background that appears on the
+   * active route. This is the opposite of the old look, where all 4
+   * sat in their own lime-filled, dark-bordered rounded rectangles the
+   * same size as the center button: that made the whole bar read as
+   * "5 equally loud blocks" and buried the one action that's actually
+   * supposed to stand out. Now the bar itself is a single soft glass
+   * pill, the side icons are small and understated, and the center
+   * "+" (unchanged in size/shape/shadow from before) is the only
+   * strong shape — exactly the hierarchy being asked for. ---------- */
+  @media (max-width: 859px) {
+    .gnav-root {
+      bottom: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    .gnav-pill {
+      width: auto;
+      max-width: calc(100% - 24px);
+      margin: 0 auto;
+      padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px)) 6px;
+      justify-content: center;
+      gap: 2px;
+      background: color-mix(in srgb, var(--cream) 92%, var(--lime) 8%);
+      backdrop-filter: blur(16px) saturate(170%);
+      -webkit-backdrop-filter: blur(16px) saturate(170%);
+      border: 1.5px solid var(--line);
+      border-radius: 999px;
+      box-shadow: 0 10px 28px rgba(34, 32, 28, 0.14);
+    }
+
+    /* Quiet icon buttons — no fill, no border, just the icon. A soft
+       rounded-square highlight appears only behind the active route,
+       so the bar still tells you where you are without every tab
+       shouting for attention. Fixed (not flex: 1) width so they stay
+       compact and don't stretch the whole bar out to full-width. */
+    .gnav-item {
+      flex-direction: column;
+      gap: 0;
+      flex: 0 0 auto;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 13px;
+      background: transparent;
+      border: none;
+      color: var(--ink);
+      opacity: 0.6;
+      transition: transform 160ms ease, background-color 160ms ease, opacity 160ms ease;
+    }
+
+    .gnav-item-icon {
+      width: 20px;
+      height: 20px;
+      margin: 0 auto;
+    }
+
+    .gnav-item-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .gnav-avatar,
+    .gnav-avatar-initial {
+      width: 20px;
+      height: 20px;
+      font-size: 10.5px;
+    }
+
+    /* Labels removed on mobile — icon-only tab bar, matching desktop. */
+    .gnav-item-label {
+      display: none;
+    }
+
+    .gnav-item.is-active {
+      opacity: 1;
+      background: color-mix(in srgb, var(--lime) 55%, transparent);
+    }
+
+    .gnav-item:active {
+      transform: scale(0.92);
+    }
+
+    /* Raised center "+" — unchanged from before: same size, shape,
+       lift and shadow, still the one thing that's actually big and
+       loud on this bar. */
+    .gnav-add {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      margin: 0 6px;
+      flex-shrink: 0;
+      box-shadow: 0 6px 16px color-mix(in srgb, var(--lime) 55%, transparent), 0 2px 0 rgba(34, 32, 28, 0.9);
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .gnav-add svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .gnav-add-label {
+      display: none;
+    }
+
+    .gnav-add:active {
+      transform: scale(0.94);
+      box-shadow: 0 3px 10px color-mix(in srgb, var(--lime) 55%, transparent), 0 1px 0 rgba(34, 32, 28, 0.9);
+    }
+  }
+
+  /* ============================================================
+   * Desktop: floating pill nav, >=860px. Bottom-right rather than
+   * alongside the existing top header pill (components/layout/
+   * Header.tsx's .pill-nav, ~90% width, centered) — floating this one
+   * at the opposite corner keeps it out of that pill's way entirely
+   * instead of competing for the same strip of the viewport.
+   * ============================================================ */
+  @media (min-width: 860px) {
+    .gnav-root {
+      top: auto;
+      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      justify-content: flex-end;
+      padding-right: max(32px, env(safe-area-inset-right, 0px));
+    }
+
+    .gnav-pill {
+      gap: 2px;
+      background: color-mix(in srgb, var(--cream) 90%, var(--lime) 10%);
+      backdrop-filter: blur(16px) saturate(170%);
+      -webkit-backdrop-filter: blur(16px) saturate(170%);
+      border: 1.5px solid var(--line);
+      border-radius: 999px;
+      padding: 6px;
+      box-shadow: 0 10px 28px rgba(34, 32, 28, 0.1);
+    }
+
+    .gnav-item {
+      flex-direction: row;
+      gap: 0;
+      padding: 10px;
+      border-radius: 50%;
+      position: relative;
+      background: none;
+      transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .gnav-item-icon {
+      width: 19px;
+      height: 19px;
+    }
+
+    /* Desktop stays icon-only, same as before this change. */
+    .gnav-item-label {
+      display: none;
+    }
+
+    .gnav-avatar,
+    .gnav-avatar-initial {
+      width: 19px;
+      height: 19px;
+      font-size: 10.5px;
+    }
+
+    .gnav-item:hover {
+      background: var(--lime);
+      color: var(--lime-ink);
+      transform: translateY(-1px);
+    }
+
+    .gnav-item.is-active {
+      background: var(--lime);
+      color: var(--lime-ink);
+    }
+
+    .gnav-item:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 2px;
+    }
+
+    .gnav-add {
+      width: auto;
+      height: 38px;
+      border-radius: 999px;
+      gap: 7px;
+      padding: 0 16px 0 12px;
+      margin: 0 4px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 13.5px;
+      font-weight: 700;
+      box-shadow: 0 2px 0 rgba(34, 32, 28, 0.9);
+      transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+    }
+
+    .gnav-add svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .gnav-add:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 0 rgba(34, 32, 28, 0.9);
+    }
+
+    .gnav-add:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+
+    .gnav-add-label {
+      display: inline;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gnav-item,
+    .gnav-add {
+      transition: none;
+    }
+  }
