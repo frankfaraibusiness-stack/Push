@@ -568,6 +568,73 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          transition: color .15s, background .15s;
          }
          .organizer-row-del:hover { color: var(--bad); background: var(--bad-dim); }
+         .organizer-folder {
+         border: 1px solid var(--border-soft);
+         border-radius: 9px;
+         margin: 4px 0;
+         overflow: hidden;
+         }
+         .organizer-folder-head {
+         display: flex;
+         align-items: center;
+         gap: 8px;
+         padding: 7px 8px;
+         background: var(--panel);
+         }
+         .organizer-folder-toggle {
+         background: none;
+         border: none;
+         color: var(--text-faint);
+         width: 20px; height: 20px;
+         display: flex; align-items: center; justify-content: center;
+         flex-shrink: 0;
+         cursor: pointer;
+         border-radius: 5px;
+         }
+         .organizer-folder-toggle:hover { background: var(--border-soft); }
+         .organizer-folder-name {
+         font-size: 12.5px;
+         font-family: var(--mono);
+         font-weight: 700;
+         color: var(--text);
+         overflow: hidden;
+         text-overflow: ellipsis;
+         white-space: nowrap;
+         min-width: 0;
+         }
+         .organizer-folder-count {
+         font-size: 10.5px;
+         font-family: var(--mono);
+         color: var(--text-faint);
+         background: var(--bg);
+         border: 1px solid var(--border-soft);
+         border-radius: 999px;
+         padding: 2px 7px;
+         flex-shrink: 0;
+         margin-left: auto;
+         }
+         .organizer-folder-del {
+         background: var(--bad-dim);
+         color: var(--bad);
+         border: 1px solid rgba(248,113,113,0.3);
+         border-radius: 7px;
+         padding: 5px 9px;
+         font-size: 11px;
+         font-weight: 700;
+         font-family: inherit;
+         cursor: pointer;
+         display: flex; align-items: center; gap: 5px;
+         white-space: nowrap;
+         flex-shrink: 0;
+         transition: background .15s;
+         }
+         .organizer-folder-del:hover { background: rgba(248,113,113,0.2); }
+         .organizer-folder-rows {
+         flex-direction: column;
+         gap: 2px;
+         padding: 4px 4px 6px 20px;
+         }
+         .organizer-folder-rows .organizer-row { padding: 6px 8px; }
          .organizer-danger-row {
          display: flex;
          gap: 8px;
@@ -1067,19 +1134,88 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          // ══════════════════════════════════════════════════════════
          // PUSH
          // ══════════════════════════════════════════════════════════
+         // Bulk-commit threshold: below this, the old one-PUT-per-file flow
+         // (which also handles the GET-for-sha "update existing file" case
+         // file-by-file) runs as before — it's simpler and fine for a
+         // handful of files. At/above it, we switch to a single Git Data
+         // API commit covering every queued file at once, since 1-by-1
+         // Contents API calls would mean one commit (and 2 requests) PER
+         // FILE — painfully slow for a 1,000-file zip.
+         const BULK_COMMIT_THRESHOLD = 10;
+
          document.getElementById('pushBtn').addEventListener('click', async () => {
            const repo = document.getElementById('repoSelect').value;
            if (!repo) return showToast('Select a repository first', 'bad');
            if (fileState.length === 0) return showToast('Add at least one file', 'bad');
-         
+
            const btn = document.getElementById('pushBtn');
            const label = document.getElementById('pushBtnLabel');
            btn.disabled = true;
            const originalLabel = label.textContent;
-         
+
+           if (fileState.length >= BULK_COMMIT_THRESHOLD) {
+             await pushBulk(repo, label, originalLabel);
+           } else {
+             await pushOneByOne(repo, label, originalLabel);
+           }
+
+           btn.disabled = fileState.length === 0;
+         });
+
+         // Fast path: every queued file goes into ONE commit via the
+         // backend's bulkCommit route (blobs created in parallel server-side,
+         // then one tree + one commit + one ref update).
+         async function pushBulk(repo, label, originalLabel) {
+           fileState.forEach(f => f.status = 'pushing');
+           renderQueue();
+           label.textContent = `Pushing ${fileState.length} files in 1 commit...`;
+
+           try {
+             const res = await fetch(API_URL, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                 bulkCommit: true,
+                 repo,
+                 files: fileState.map(f => ({ path: f.path, content: f.content })),
+                 message: `Add ${fileState.length} files`
+               })
+             });
+
+             if (!res.ok) {
+               const err = await res.json().catch(() => ({}));
+               throw new Error(err.error || 'Bulk commit failed');
+             }
+             const data = await res.json();
+             const failedPaths = new Set((data.errors || []).map(e => e.path));
+
+             fileState.forEach(f => { f.status = failedPaths.has(f.path) ? 'error' : 'done'; });
+             renderQueue();
+
+             label.textContent = originalLabel;
+
+             if (!data.errors || data.errors.length === 0) {
+               showToast(`Pushed ${data.committedCount} file${data.committedCount === 1 ? '' : 's'} to GitHub in 1 commit`, 'good');
+               fileState = [];
+               renderQueue();
+             } else {
+               showToast(`${data.committedCount} committed, ${data.errors.length} failed — check status badges`, 'bad');
+             }
+           } catch (err) {
+             fileState.forEach(f => f.status = 'error');
+             renderQueue();
+             label.textContent = originalLabel;
+             showToast(err.message || 'Bulk push failed', 'bad');
+           }
+         }
+
+         // Slower path kept for small batches: one PUT (Contents API) per
+         // file, each its own commit. Still useful for a handful of files
+         // where per-file progress/feedback matters more than commit count.
+         async function pushOneByOne(repo, label, originalLabel) {
            let successCount = 0;
            let failCount = 0;
-         
+
            for (const f of fileState) {
              f.status = 'pushing';
              renderQueue();
@@ -1093,13 +1229,13 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                    if (existing && existing.sha) sha = existing.sha;
                  }
                } catch (_) { /* file probably doesn't exist yet */ }
-         
+
                const putRes = await fetch(API_URL, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify({ repo, path: f.path, content: f.content, sha })
                });
-         
+
                if (putRes.ok) {
                  f.status = 'done';
                  successCount++;
@@ -1113,10 +1249,9 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              }
              renderQueue();
            }
-         
+
            label.textContent = originalLabel;
-           btn.disabled = fileState.length === 0;
-         
+
            if (failCount === 0) {
              showToast(`Pushed ${successCount} file${successCount === 1 ? '' : 's'} to GitHub`, 'good');
              fileState = [];
@@ -1124,7 +1259,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            } else {
              showToast(`${successCount} pushed, ${failCount} failed — check status badges`, 'bad');
            }
-         });
+         }
          
          renderQueue();
 
@@ -1140,6 +1275,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          let repoTree = [];       // flat list of { path, sha } for every file in the repo
          let repoTreeLoadedFor = null; // which repo full_name the tree belongs to
          let selectedPaths = new Set();
+         let collapsedFolders = new Set(); // folder paths currently collapsed in the UI
 
          organizeBtn.addEventListener('click', async () => {
            const repo = document.getElementById('repoSelect').value;
@@ -1209,6 +1345,42 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            return `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>${escapeHtml(text)}</span>`;
          }
 
+         // Group the flat file list by their top-level folder so the UI can
+         // offer a single "delete this folder" action instead of forcing
+         // file-by-file deletion for repos with nested directories.
+         // Files directly at repo root (no "/" in their path) have no
+         // folder group and are rendered as loose rows above the groups.
+         function groupByFolder(files) {
+           const groups = new Map(); // folderPath -> files[]
+           const rootFiles = [];
+           for (const f of files) {
+             const lastSlash = f.path.lastIndexOf('/');
+             if (lastSlash < 0) {
+               rootFiles.push(f);
+             } else {
+               const folder = f.path.slice(0, lastSlash);
+               if (!groups.has(folder)) groups.set(folder, []);
+               groups.get(folder).push(f);
+             }
+           }
+           return { rootFiles, groups };
+         }
+
+         function fileRowHtml(f) {
+           const checked = selectedPaths.has(f.path) ? 'checked' : '';
+           const lastSlash = f.path.lastIndexOf('/');
+           const dirPart = lastSlash >= 0 ? escapeHtml(f.path.slice(0, lastSlash + 1)) : '';
+           const namePart = escapeHtml(lastSlash >= 0 ? f.path.slice(lastSlash + 1) : f.path);
+           return `
+           <label class="organizer-row">
+             <input type="checkbox" data-path="${escapeHtml(f.path)}" ${checked} onchange="window.toggleOrganizerPath(this)">
+             <span class="organizer-row-path"><span class="dir-part">${dirPart}</span>${namePart}</span>
+             <button type="button" class="organizer-row-del" title="Delete this file" onclick="window.organizerDeleteOne('${escapeHtml(f.path).replace(/'/g, "\\'")}')">
+               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+             </button>
+           </label>`;
+         }
+
          function renderOrganizer() {
            if (repoTree.length === 0) {
              organizerBody.innerHTML = `<div class="organizer-empty">No files found in this repo</div>`;
@@ -1216,20 +1388,31 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            }
 
            const sorted = [...repoTree].sort((a, b) => a.path.localeCompare(b.path));
+           const { rootFiles, groups } = groupByFolder(sorted);
+           const folderNames = [...groups.keys()].sort((a, b) => a.localeCompare(b));
 
-           const rows = sorted.map(f => {
-             const checked = selectedPaths.has(f.path) ? 'checked' : '';
-             const lastSlash = f.path.lastIndexOf('/');
-             const dirPart = lastSlash >= 0 ? escapeHtml(f.path.slice(0, lastSlash + 1)) : '';
-             const namePart = escapeHtml(lastSlash >= 0 ? f.path.slice(lastSlash + 1) : f.path);
+           const rootRows = rootFiles.map(fileRowHtml).join('');
+
+           const folderBlocks = folderNames.map(folder => {
+             const files = groups.get(folder);
+             const isCollapsed = collapsedFolders.has(folder);
+             const rows = files.map(fileRowHtml).join('');
              return `
-             <label class="organizer-row">
-               <input type="checkbox" data-path="${escapeHtml(f.path)}" ${checked} onchange="window.toggleOrganizerPath(this)">
-               <span class="organizer-row-path"><span class="dir-part">${dirPart}</span>${namePart}</span>
-               <button type="button" class="organizer-row-del" title="Delete this file" onclick="window.organizerDeleteOne('${escapeHtml(f.path).replace(/'/g, "\\'")}')">
-                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-               </button>
-             </label>`;
+             <div class="organizer-folder" data-folder="${escapeHtml(folder)}">
+               <div class="organizer-folder-head">
+                 <button type="button" class="organizer-folder-toggle" onclick="window.organizerToggleFolder('${escapeHtml(folder).replace(/'/g, "\\'")}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">
+                   <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: rotate(${isCollapsed ? '-90' : '0'}deg); transition: transform .15s;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
+                 </button>
+                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0; color:var(--text-faint);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"></path></svg>
+                 <span class="organizer-folder-name">${escapeHtml(folder)}/</span>
+                 <span class="organizer-folder-count">${files.length} file${files.length === 1 ? '' : 's'}</span>
+                 <button type="button" class="organizer-folder-del" title="Delete this whole folder in one commit" onclick="window.organizerDeleteFolder('${escapeHtml(folder).replace(/'/g, "\\'")}')">
+                   <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
+                   Delete folder
+                 </button>
+               </div>
+               <div class="organizer-folder-rows" style="display:${isCollapsed ? 'none' : 'flex'};">${rows}</div>
+             </div>`;
            }).join('');
 
            organizerBody.innerHTML = `
@@ -1240,7 +1423,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                  <button class="organizer-select-link" onclick="window.organizerSelectNone()">clear</button>
                </div>
              </div>
-             <div class="organizer-list">${rows}</div>
+             <div class="organizer-list">${rootRows}${folderBlocks}</div>
              <div class="organizer-move-row">
                <input type="text" id="organizerFolderInput" placeholder="folder name, e.g. css">
                <button class="organizer-move-btn" id="organizerMoveBtn" onclick="window.organizerMoveSelected()">
@@ -1311,6 +1494,57 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              showToast(err.message || 'Delete failed', 'bad');
            } finally {
              organizerStatus.style.display = 'none';
+           }
+         };
+
+         window.organizerToggleFolder = (folder) => {
+           if (collapsedFolders.has(folder)) collapsedFolders.delete(folder);
+           else collapsedFolders.add(folder);
+           renderOrganizer();
+         };
+
+         // Deletes an entire folder (and everything nested inside it) in a
+         // SINGLE commit via the backend's Git Trees API route, instead of
+         // looping deleteOneFile() across every file in the folder — this
+         // is why it's much faster than selecting all the folder's files
+         // and using "Delete selected" for repos with many nested files.
+         window.organizerDeleteFolder = async (folder) => {
+           const repo = document.getElementById('repoSelect').value;
+           if (!repo) return showToast('Select a repository first', 'bad');
+           const count = repoTree.filter(f => f.path.startsWith(`${folder}/`)).length;
+           if (count === 0) return showToast('No files found in that folder', 'bad');
+           if (!confirm(`Delete the entire folder "${folder}/" (${count} file${count === 1 ? '' : 's'})? This happens in one commit and cannot be undone.`)) return;
+
+           organizerStatus.style.display = 'flex';
+           organizerStatus.innerHTML = spinnerHtml(`Deleting folder ${folder}/ (${count} file${count === 1 ? '' : 's'} in one commit)...`);
+           const delBtn = document.getElementById('organizerDeleteSelectedBtn');
+           const delAllBtn = document.getElementById('organizerDeleteAllBtn');
+           if (delBtn) delBtn.disabled = true;
+           if (delAllBtn) delAllBtn.disabled = true;
+
+           try {
+             const res = await fetch(API_URL, {
+               method: 'DELETE',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ repo, path: folder, deleteFolder: true })
+             });
+             if (!res.ok) {
+               const err = await res.json().catch(() => ({}));
+               throw new Error(err.error || `Failed to delete folder ${folder}`);
+             }
+             const data = await res.json();
+             const deletedSet = new Set(data.deletedPaths || []);
+             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
+             for (const p of deletedSet) selectedPaths.delete(p);
+             collapsedFolders.delete(folder);
+             renderOrganizer();
+             showToast(`Deleted folder ${folder}/ (${data.deletedCount ?? count} file${(data.deletedCount ?? count) === 1 ? '' : 's'}, 1 commit)`, 'good');
+           } catch (err) {
+             showToast(err.message || 'Folder delete failed', 'bad');
+           } finally {
+             organizerStatus.style.display = 'none';
+             if (delBtn) delBtn.disabled = false;
+             if (delAllBtn) delAllBtn.disabled = false;
            }
          };
 
