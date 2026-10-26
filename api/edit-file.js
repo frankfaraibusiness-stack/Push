@@ -189,12 +189,37 @@ export default async function handler(req, res) {
             const baseTreeSha = commitData.tree.sha;
 
             // 2. Create a blob for every file. Run with capped concurrency
-            //    (10 at a time) rather than fully serial (slow) or fully
-            //    parallel (risks hitting GitHub's secondary rate limits).
-            const CONCURRENCY = 10;
+            //    (5 at a time, down from 10 — GitHub's secondary rate limit
+            //    triggers on bursts of rapid writes, and 10-wide concurrency
+            //    across many back-to-back chunks tripped it in practice) and
+            //    retry individual 403 "secondary rate limit" hits with
+            //    backoff instead of giving up on the whole chunk immediately.
+            const CONCURRENCY = 5;
             const blobResults = new Array(files.length);
             const errors = [];
             let nextIndex = 0;
+
+            function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+            async function createBlobWithRetry(f, attempt = 0) {
+                const blobRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/blobs`, {
+                    method: 'POST',
+                    headers: ghHeaders,
+                    body: JSON.stringify({ content: f.content, encoding: 'base64' })
+                });
+                if (blobRes.ok) return { ok: true, data: await blobRes.json() };
+
+                const isRateLimit = blobRes.status === 403 || blobRes.status === 429;
+                if (isRateLimit && attempt < 3) {
+                    // Respect Retry-After if GitHub sent one, else back off
+                    // 2s / 5s / 12s.
+                    const retryAfter = Number(blobRes.headers.get('retry-after'));
+                    const waitMs = retryAfter > 0 ? retryAfter * 1000 : [2000, 5000, 12000][attempt];
+                    await sleep(waitMs);
+                    return createBlobWithRetry(f, attempt + 1);
+                }
+                return { ok: false, error: await ghError(blobRes, "Blob creation failed") };
+            }
 
             async function worker() {
                 while (nextIndex < files.length) {
@@ -205,17 +230,12 @@ export default async function handler(req, res) {
                         continue;
                     }
                     try {
-                        const blobRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/blobs`, {
-                            method: 'POST',
-                            headers: ghHeaders,
-                            body: JSON.stringify({ content: f.content, encoding: 'base64' })
-                        });
-                        if (!blobRes.ok) {
-                            errors.push({ path: f.path, error: await ghError(blobRes, "Blob creation failed") });
+                        const result = await createBlobWithRetry(f);
+                        if (!result.ok) {
+                            errors.push({ path: f.path, error: result.error });
                             continue;
                         }
-                        const blobData = await blobRes.json();
-                        blobResults[i] = { path: f.path, mode: '100644', type: 'blob', sha: blobData.sha };
+                        blobResults[i] = { path: f.path, mode: '100644', type: 'blob', sha: result.data.sha };
                     } catch (err) {
                         errors.push({ path: f.path, error: err.message });
                     }
