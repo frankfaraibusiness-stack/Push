@@ -1476,51 +1476,108 @@
            btn.disabled = fileState.length === 0;
          });
 
+         // Serverless platforms (Vercel etc.) cap the raw request body size
+         // (commonly ~4.5MB) regardless of how few files that is — base64
+         // content inflates size ~33% over the original bytes, so a few
+         // hundred real-world files can blow past that limit even though
+         // they're nowhere near the 5000-file count cap, and show up as an
+         // opaque HTTP 413 from the platform itself (before our code even
+         // runs). So we chunk by estimated payload size, not just count,
+         // and push each chunk as its own sequential commit.
+         const MAX_CHUNK_BYTES = 3 * 1024 * 1024; // stay safely under ~4.5MB raw body limits
+
+         function chunkFilesBySize(files) {
+           const chunks = [];
+           let current = [];
+           let currentBytes = 0;
+           for (const f of files) {
+             // base64 string length ≈ actual byte size already (4/3 inflation
+             // is baked into f.content.length), plus a little JSON overhead.
+             const approxBytes = f.content.length + f.path.length + 64;
+             if (current.length > 0 && currentBytes + approxBytes > MAX_CHUNK_BYTES) {
+               chunks.push(current);
+               current = [];
+               currentBytes = 0;
+             }
+             current.push(f);
+             currentBytes += approxBytes;
+           }
+           if (current.length > 0) chunks.push(current);
+           return chunks;
+         }
+
          async function pushBulk(repo, label, originalLabel) {
            fileState.forEach(f => f.status = 'pushing');
            renderQueue();
-           label.textContent = `Pushing ${fileState.length} files in 1 commit...`;
+
+           const allFiles = fileState.map(f => ({ path: f.path, content: f.content, _ref: f }));
+           const chunks = chunkFilesBySize(allFiles);
+           const baseMessage = currentCommitMessage(`Add ${fileState.length} files`);
+           const branch = currentBranch();
+
+           let totalCommitted = 0;
+           const allErrors = [];
 
            try {
-             const res = await fetch(API_URL, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                 bulkCommit: true,
-                 repo,
-                 branch: currentBranch(),
-                 files: fileState.map(f => ({ path: f.path, content: f.content })),
-                 message: currentCommitMessage(`Add ${fileState.length} files`)
-               })
-             });
+             for (let i = 0; i < chunks.length; i++) {
+               const chunk = chunks[i];
+               const chunkLabel = chunks.length > 1
+                 ? `Pushing chunk ${i + 1}/${chunks.length} (${chunk.length} files)...`
+                 : `Pushing ${chunk.length} files in 1 commit...`;
+               label.textContent = chunkLabel;
 
-             if (!res.ok) {
-               const err = await res.json().catch(() => ({}));
-               console.error('Bulk commit failed:', err);
-               throw new Error(err.error || `Bulk commit failed (HTTP ${res.status})`);
+               const res = await fetch(API_URL, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({
+                   bulkCommit: true,
+                   repo,
+                   branch,
+                   files: chunk.map(f => ({ path: f.path, content: f.content })),
+                   message: chunks.length > 1 ? `${baseMessage} (part ${i + 1}/${chunks.length})` : baseMessage
+                 })
+               });
+
+               if (!res.ok) {
+                 const err = await res.json().catch(() => ({}));
+                 console.error(`Bulk commit chunk ${i + 1}/${chunks.length} failed:`, err);
+                 // Mark this chunk's files as errored, but leave files in
+                 // chunks we never reached as 'pending' rather than 'error',
+                 // since they were never attempted.
+                 chunk.forEach(f => f._ref.status = 'error');
+                 for (let j = i + 1; j < chunks.length; j++) {
+                   chunks[j].forEach(f => f._ref.status = 'pending');
+                 }
+                 renderQueue();
+                 throw new Error(err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${res.status})`);
+               }
+
+               const data = await res.json();
+               const failedPaths = new Set((data.errors || []).map(e => e.path));
+               chunk.forEach(f => { f._ref.status = failedPaths.has(f.path) ? 'error' : 'done'; });
+               renderQueue();
+
+               totalCommitted += data.committedCount || 0;
+               if (data.errors && data.errors.length) allErrors.push(...data.errors);
              }
-             const data = await res.json();
-             const failedPaths = new Set((data.errors || []).map(e => e.path));
-
-             fileState.forEach(f => { f.status = failedPaths.has(f.path) ? 'error' : 'done'; });
-             renderQueue();
 
              label.textContent = originalLabel;
 
-             if (!data.errors || data.errors.length === 0) {
-               showToast(`Pushed ${data.committedCount} file${data.committedCount === 1 ? '' : 's'} to GitHub in 1 commit`, 'good');
+             if (allErrors.length === 0) {
+               showToast(`Pushed ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} to GitHub in ${chunks.length} commit${chunks.length === 1 ? '' : 's'}`, 'good');
                fileState = [];
                renderQueue();
              } else {
-               console.error('Per-file bulk commit errors:', data.errors);
-               showToast(`${data.committedCount} committed, ${data.errors.length} failed — check status badges`, 'bad');
+               console.error('Per-file bulk commit errors:', allErrors);
+               showToast(`${totalCommitted} committed, ${allErrors.length} failed — check status badges`, 'bad');
              }
            } catch (err) {
-             fileState.forEach(f => f.status = 'error');
-             renderQueue();
              label.textContent = originalLabel;
              console.error('Bulk push failed:', err);
-             showPersistentError('Bulk push failed', err.message || 'Unknown error — see browser console for details.');
+             const progressNote = totalCommitted > 0
+               ? ` ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed before this failure — already on GitHub.`
+               : '';
+             showPersistentError('Bulk push failed', (err.message || 'Unknown error — see browser console for details.') + progressNote);
            }
          }
 
