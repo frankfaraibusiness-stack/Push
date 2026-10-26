@@ -1496,7 +1496,8 @@
 
              if (!res.ok) {
                const err = await res.json().catch(() => ({}));
-               throw new Error(err.error || 'Bulk commit failed');
+               console.error('Bulk commit failed:', err);
+               throw new Error(err.error || `Bulk commit failed (HTTP ${res.status})`);
              }
              const data = await res.json();
              const failedPaths = new Set((data.errors || []).map(e => e.path));
@@ -1511,14 +1512,37 @@
                fileState = [];
                renderQueue();
              } else {
+               console.error('Per-file bulk commit errors:', data.errors);
                showToast(`${data.committedCount} committed, ${data.errors.length} failed — check status badges`, 'bad');
              }
            } catch (err) {
              fileState.forEach(f => f.status = 'error');
              renderQueue();
              label.textContent = originalLabel;
-             showToast(err.message || 'Bulk push failed', 'bad');
+             console.error('Bulk push failed:', err);
+             showPersistentError('Bulk push failed', err.message || 'Unknown error — see browser console for details.');
            }
+         }
+
+         // Toasts auto-dismiss, which makes them easy to miss on a failed
+         // bulk commit. For real errors we also show a persistent banner
+         // the user has to dismiss, with the full message visible/selectable.
+         function showPersistentError(title, detail) {
+           let banner = document.getElementById('persistentErrorBanner');
+           if (!banner) {
+             banner = document.createElement('div');
+             banner.id = 'persistentErrorBanner';
+             banner.style.cssText = 'position:fixed; bottom:16px; left:16px; right:16px; max-width:640px; margin:0 auto; background:var(--bad-bg, #3a1414); border:1px solid var(--bad, #e5484d); color:var(--text, #fff); padding:12px 14px; border-radius:8px; z-index:9999; font-size:13px; line-height:1.4;';
+             document.body.appendChild(banner);
+           }
+           banner.innerHTML = `
+             <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+               <div>
+                 <strong>${escapeHtml(title)}</strong>
+                 <div style="margin-top:4px; opacity:0.9; user-select:text;">${escapeHtml(detail)}</div>
+               </div>
+               <button type="button" onclick="this.closest('#persistentErrorBanner').remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:16px; line-height:1; flex-shrink:0;">&times;</button>
+             </div>`;
          }
 
          async function pushOneByOne(repo, label, originalLabel) {
