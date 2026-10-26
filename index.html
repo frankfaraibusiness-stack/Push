@@ -1485,6 +1485,7 @@
          // runs). So we chunk by estimated payload size, not just count,
          // and push each chunk as its own sequential commit.
          const MAX_CHUNK_BYTES = 3 * 1024 * 1024; // stay safely under ~4.5MB raw body limits
+         const MAX_CHUNK_FILES = 100; // hard ceiling regardless of size, so a chunk of many tiny files still stays a reasonably-sized commit
 
          function chunkFilesBySize(files) {
            const chunks = [];
@@ -1494,7 +1495,7 @@
              // base64 string length ≈ actual byte size already (4/3 inflation
              // is baked into f.content.length), plus a little JSON overhead.
              const approxBytes = f.content.length + f.path.length + 64;
-             if (current.length > 0 && currentBytes + approxBytes > MAX_CHUNK_BYTES) {
+             if (current.length > 0 && (currentBytes + approxBytes > MAX_CHUNK_BYTES || current.length >= MAX_CHUNK_FILES)) {
                chunks.push(current);
                current = [];
                currentBytes = 0;
