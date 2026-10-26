@@ -135,6 +135,21 @@ export default async function handler(req, res) {
     // file (in parallel, capped concurrency), build a single tree on top
     // of the current HEAD, make one commit, and fast-forward the branch —
     // so uploading 1,000 files costs one commit, not 1,000.
+    // Pulls GitHub's actual error message out of a failed response body
+    // instead of letting callers fall back to a generic string. GitHub
+    // error bodies are normally { message: "...", errors: [...] }.
+    async function ghError(response, fallback) {
+        try {
+            const body = await response.json();
+            if (body && body.message) {
+                return `${fallback} (${response.status}): ${body.message}`;
+            }
+        } catch (_) {
+            // body wasn't JSON — fall through to the generic message below.
+        }
+        return `${fallback} (${response.status})`;
+    }
+
     if (req.method === 'POST' && req.body && req.body.bulkCommit) {
         const { repo: bcRepo, files, message, branch: bcBranchOverride } = req.body;
         if (!bcRepo || !Array.isArray(files) || files.length === 0) {
@@ -158,18 +173,18 @@ export default async function handler(req, res) {
             let branch = bcBranchOverride;
             if (!branch) {
                 const repoInfoRes = await fetch(`https://api.github.com/repos/${bcRepo}`, { headers: ghHeaders });
-                if (!repoInfoRes.ok) return res.status(repoInfoRes.status).json({ error: "Could not read repository info." });
+                if (!repoInfoRes.ok) return res.status(repoInfoRes.status).json({ error: await ghError(repoInfoRes, "Could not read repository info.") });
                 const repoInfo = await repoInfoRes.json();
                 branch = repoInfo.default_branch;
             }
 
             const refRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/ref/heads/${branch}`, { headers: ghHeaders });
-            if (!refRes.ok) return res.status(refRes.status).json({ error: "Could not resolve branch ref." });
+            if (!refRes.ok) return res.status(refRes.status).json({ error: await ghError(refRes, "Could not resolve branch ref.") });
             const refData = await refRes.json();
             const baseCommitSha = refData.object.sha;
 
             const commitRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/commits/${baseCommitSha}`, { headers: ghHeaders });
-            if (!commitRes.ok) return res.status(commitRes.status).json({ error: "Could not read base commit." });
+            if (!commitRes.ok) return res.status(commitRes.status).json({ error: await ghError(commitRes, "Could not read base commit.") });
             const commitData = await commitRes.json();
             const baseTreeSha = commitData.tree.sha;
 
@@ -196,7 +211,7 @@ export default async function handler(req, res) {
                             body: JSON.stringify({ content: f.content, encoding: 'base64' })
                         });
                         if (!blobRes.ok) {
-                            errors.push({ path: f.path, error: `Blob creation failed (${blobRes.status})` });
+                            errors.push({ path: f.path, error: await ghError(blobRes, "Blob creation failed") });
                             continue;
                         }
                         const blobData = await blobRes.json();
@@ -221,7 +236,7 @@ export default async function handler(req, res) {
                 headers: ghHeaders,
                 body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries })
             });
-            if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: "Could not create new tree." });
+            if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: await ghError(newTreeRes, "Could not create new tree."), details: errors });
             const newTree = await newTreeRes.json();
 
             // 4. One commit for the whole batch.
@@ -234,7 +249,7 @@ export default async function handler(req, res) {
                     parents: [baseCommitSha]
                 })
             });
-            if (!newCommitRes.ok) return res.status(newCommitRes.status).json({ error: "Could not create new commit." });
+            if (!newCommitRes.ok) return res.status(newCommitRes.status).json({ error: await ghError(newCommitRes, "Could not create new commit."), details: errors });
             const newCommit = await newCommitRes.json();
 
             // 5. Fast-forward the branch ref.
@@ -243,7 +258,7 @@ export default async function handler(req, res) {
                 headers: ghHeaders,
                 body: JSON.stringify({ sha: newCommit.sha })
             });
-            if (!updateRefRes.ok) return res.status(updateRefRes.status).json({ error: "Could not update branch ref." });
+            if (!updateRefRes.ok) return res.status(updateRefRes.status).json({ error: await ghError(updateRefRes, "Could not update branch ref."), details: errors });
 
             return res.status(200).json({
                 success: true,
