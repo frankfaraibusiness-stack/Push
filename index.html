@@ -1,71 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
    <head>
-siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
       <title>Pusher</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
       <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
       <style>
-         @font-face {
-         font-family: 'JetBrains Mono';
-         src: local('JetBrains Mono');
-         }
          :root {
-         --bg: #08080a;
-         --panel: #121214;
-         --panel-2: #1a1a1d;
-         --border: #232327;
-         --border-soft: #1c1c20;
-         --text: #eeeef0;
-         --text-dim: #86868f;
-         --text-faint: #4d4d54;
-         --accent: #3b82f6;
-         --accent-dim: #1d4ed8;
-         --accent-glow: rgba(59, 130, 246, 0.18);
-         --good: #34d399;
-         --good-dim: rgba(52, 211, 153, 0.12);
-         --bad: #f87171;
-         --bad-dim: rgba(248, 113, 113, 0.12);
-         --warn: #fbbf24;
-         --radius: 14px;
-         --radius-sm: 9px;
-         --mono: 'SF Mono', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
-         --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+         /* ── dark (default) ── */
+         --bg: #0a0d12;
+         --bg-grid: rgba(255,255,255,0.025);
+         --panel: #11151b;
+         --panel-2: #171c24;
+         --panel-3: #1d2430;
+         --border: #222a35;
+         --border-soft: #1a2029;
+         --text: #edf0f4;
+         --text-dim: #8b93a1;
+         --text-faint: #4c5564;
+         --accent: #4ade80;
+         --accent-ink: #063a1c;
+         --accent-dim: #1f6b3f;
+         --accent-glow: rgba(74, 222, 128, 0.14);
+         --amber: #f0b254;
+         --amber-dim: rgba(240, 178, 84, 0.14);
+         --good: #4ade80;
+         --good-dim: rgba(74, 222, 128, 0.12);
+         --bad: #f8717a;
+         --bad-dim: rgba(248, 113, 122, 0.13);
+         --radius-lg: 16px;
+         --radius: 12px;
+         --radius-sm: 8px;
+         --mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Consolas, monospace;
+         --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+         --shadow-pop: 0 20px 50px -20px rgba(0,0,0,0.6);
+         }
+         html[data-theme="light"] {
+         --bg: #f6f7f5;
+         --bg-grid: rgba(10,15,12,0.035);
+         --panel: #ffffff;
+         --panel-2: #f0f2ef;
+         --panel-3: #e6e9e5;
+         --border: #dadfd8;
+         --border-soft: #e4e8e1;
+         --text: #141a16;
+         --text-dim: #5c6660;
+         --text-faint: #9aa39b;
+         --accent: #1a9850;
+         --accent-ink: #ffffff;
+         --accent-dim: #0f7a3e;
+         --accent-glow: rgba(26, 152, 80, 0.12);
+         --amber: #b4740f;
+         --amber-dim: rgba(180, 116, 15, 0.12);
+         --good: #1a9850;
+         --good-dim: rgba(26, 152, 80, 0.1);
+         --bad: #d33e49;
+         --bad-dim: rgba(211, 62, 73, 0.1);
+         --shadow-pop: 0 20px 50px -24px rgba(20,26,22,0.25);
          }
          * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
          html { color-scheme: dark; }
+         html[data-theme="light"] { color-scheme: light; }
          body {
          margin: 0;
          min-height: 100vh;
          background:
-         radial-gradient(ellipse 700px 400px at 50% -10%, rgba(59,130,246,0.08), transparent 60%),
+         radial-gradient(ellipse 600px 320px at 15% -8%, var(--accent-glow), transparent 60%),
          var(--bg);
          color: var(--text);
          font-family: var(--sans);
          -webkit-font-smoothing: antialiased;
-         padding: 18px 16px 100px;
+         padding: 16px 16px 112px;
+         transition: background .2s, color .2s;
          }
          ::selection { background: var(--accent-glow); }
+         .wrap { max-width: 640px; margin: 0 auto; }
+         a { color: inherit; }
+         button, input, select { font-family: inherit; }
          /* ── Header ───────────────────────────────────────────── */
          .header {
          display: flex;
          justify-content: space-between;
          align-items: center;
-         margin-bottom: 22px;
+         margin-bottom: 18px;
          }
          .brand { display: flex; align-items: center; gap: 10px; }
          .brand-mark {
-         width: 34px; height: 34px;
-         border-radius: 9px;
-         background: linear-gradient(145deg, #1c2534, #0f141c);
+         width: 36px; height: 36px;
+         border-radius: 10px;
+         background: var(--panel-3);
          border: 1px solid var(--border);
          display: flex; align-items: center; justify-content: center;
          color: var(--accent);
          flex-shrink: 0;
          }
-         .title { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+         .title { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
          .subtitle { font-size: 11.5px; color: var(--text-faint); font-family: var(--mono); margin-top: 1px; }
+         .header-actions { display: flex; gap: 8px; }
          .icon-btn {
          background: var(--panel);
          border: 1px solid var(--border);
@@ -78,16 +112,36 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          flex-shrink: 0;
          position: relative;
          }
-         .icon-btn:hover { border-color: #35353c; color: var(--text); background: var(--panel-2); }
+         .icon-btn:hover { border-color: var(--text-faint); color: var(--text); background: var(--panel-2); }
          .icon-btn:active { transform: scale(0.94); }
          .icon-btn.active { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-glow); }
-         .header-actions { display: flex; gap: 8px; }
-         .dot-badge {
-         position: absolute; top: -3px; right: -3px;
-         width: 8px; height: 8px; border-radius: 50%;
-         background: var(--accent);
-         border: 2px solid var(--bg);
+         /* ── Mode tabs (Push / Organize) ──────────────────────── */
+         .mode-tabs {
+         display: grid;
+         grid-template-columns: 1fr 1fr;
+         gap: 4px;
+         background: var(--panel);
+         border: 1px solid var(--border);
+         border-radius: var(--radius);
+         padding: 4px;
+         margin-bottom: 16px;
          }
+         .mode-tab {
+         border: none;
+         background: transparent;
+         color: var(--text-dim);
+         font-size: 13px;
+         font-weight: 600;
+         padding: 10px 8px;
+         border-radius: 8px;
+         cursor: pointer;
+         display: flex; align-items: center; justify-content: center; gap: 7px;
+         transition: background .15s, color .15s;
+         }
+         .mode-tab.active { background: var(--panel-3); color: var(--text); }
+         .mode-tab svg { flex-shrink: 0; }
+         .mode-panel { display: none; }
+         .mode-panel.active { display: block; }
          /* ── Settings panel ───────────────────────────────────── */
          .settings-wrap {
          display: grid;
@@ -95,20 +149,26 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          transition: grid-template-rows .28s cubic-bezier(.16,1,.3,1);
          margin-bottom: 0;
          }
-         .settings-wrap.open { grid-template-rows: 1fr; margin-bottom: 18px; }
+         .settings-wrap.open { grid-template-rows: 1fr; margin-bottom: 16px; }
          .settings-inner { overflow: hidden; }
          .settings-panel {
          background: var(--panel);
          border: 1px solid var(--border);
-         border-radius: var(--radius);
+         border-radius: var(--radius-lg);
          padding: 4px;
+         }
+         .settings-section-label {
+         font-size: 11px;
+         font-weight: 700;
+         color: var(--text-faint);
+         padding: 12px 12px 4px;
          }
          .setting-row {
          display: flex;
          align-items: center;
          justify-content: space-between;
          gap: 14px;
-         padding: 13px 12px;
+         padding: 12px 12px;
          }
          .setting-row + .setting-row { border-top: 1px solid var(--border-soft); }
          .setting-copy { min-width: 0; }
@@ -120,13 +180,25 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          padding: 1px 5px;
          border-radius: 4px;
          font-size: 11px;
-         color: #93c5fd;
+         color: var(--accent);
          }
+         .theme-row { display: flex; gap: 6px; }
+         .theme-choice {
+         border: 1px solid var(--border);
+         background: var(--panel-2);
+         color: var(--text-dim);
+         border-radius: 8px;
+         width: 34px; height: 34px;
+         display: flex; align-items: center; justify-content: center;
+         cursor: pointer;
+         transition: border-color .15s, color .15s, background .15s;
+         }
+         .theme-choice.active { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-glow); }
          .switch { position: relative; width: 42px; height: 25px; flex-shrink: 0; cursor: pointer; }
          .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
          .switch-track {
          position: absolute; inset: 0;
-         background: #2a2a2e;
+         background: var(--panel-3);
          border-radius: 999px;
          transition: background .18s;
          border: 1px solid var(--border);
@@ -134,12 +206,12 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          .switch-thumb {
          position: absolute; top: 2px; left: 2px;
          width: 19px; height: 19px;
-         background: #9a9aa2;
+         background: var(--text-faint);
          border-radius: 50%;
          transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .18s;
          }
          .switch input:checked + .switch-track { background: var(--accent-dim); border-color: var(--accent); }
-         .switch input:checked + .switch-track .switch-thumb { transform: translateX(17px); background: #fff; }
+         .switch input:checked + .switch-track .switch-thumb { transform: translateX(17px); background: var(--accent-ink); }
          .settings-footer {
          display: flex;
          align-items: center;
@@ -162,51 +234,126 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          .panel {
          background: var(--panel);
          border: 1px solid var(--border);
-         padding: 15px;
-         border-radius: var(--radius);
-         margin-bottom: 16px;
+         padding: 16px;
+         border-radius: var(--radius-lg);
+         margin-bottom: 14px;
          }
+         .panel-title {
+         font-size: 13px;
+         font-weight: 700;
+         margin-bottom: 12px;
+         color: var(--text);
+         display: flex;
+         align-items: center;
+         gap: 7px;
+         }
+         .panel-title svg { color: var(--accent); flex-shrink: 0; }
          .label {
-         font-size: 12px;
+         font-size: 11.5px;
          font-weight: 600;
-         margin-bottom: 9px;
+         margin-bottom: 8px;
          display: flex;
          align-items: center;
          justify-content: space-between;
          color: var(--text-dim);
-         text-transform: uppercase;
-         letter-spacing: 0.04em;
          }
-         .label-count { font-family: var(--mono); color: var(--text-faint); text-transform: none; letter-spacing: 0; }
-         select {
+         .field-row { display: flex; gap: 8px; }
+         .field-row + .field-row { margin-top: 10px; }
+         select, .text-input {
          width: 100%;
-         padding: 12px 13px;
+         padding: 11px 13px;
          border-radius: 10px;
          background: var(--panel-2);
          border: 1px solid var(--border);
          color: var(--text);
-         font-size: 14px;
+         font-size: 13.5px;
          font-family: var(--sans);
+         transition: border-color .15s;
+         }
+         select {
          appearance: none;
-         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2386868f' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238b93a1' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
          background-repeat: no-repeat;
          background-position: right 12px center;
-         padding-right: 38px;
+         padding-right: 36px;
          }
-         select:focus { outline: none; border-color: var(--accent); }
+         select:focus, .text-input:focus { outline: none; border-color: var(--accent); }
+         .text-input::placeholder { color: var(--text-faint); }
+         .text-input.mono { font-family: var(--mono); font-size: 12.5px; }
          .repo-row { display: flex; gap: 8px; }
+         .repo-row select { flex: 1; min-width: 0; }
+         .branch-chip-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+         .branch-chip-row select { flex: 1; min-width: 0; }
+         .branch-icon { color: var(--text-faint); flex-shrink: 0; }
+         .new-repo-toggle {
+         display: flex; align-items: center; gap: 6px;
+         background: none; border: none;
+         color: var(--accent);
+         font-size: 12px; font-weight: 600;
+         cursor: pointer;
+         padding: 10px 2px 0;
+         }
+         .new-repo-form {
+         display: grid;
+         grid-template-rows: 0fr;
+         transition: grid-template-rows .22s cubic-bezier(.16,1,.3,1);
+         }
+         .new-repo-form.open { grid-template-rows: 1fr; margin-top: 10px; }
+         .new-repo-form-inner { overflow: hidden; }
+         .new-repo-fields {
+         background: var(--panel-2);
+         border: 1px solid var(--border-soft);
+         border-radius: var(--radius-sm);
+         padding: 10px;
+         display: flex;
+         flex-direction: column;
+         gap: 8px;
+         }
+         .new-repo-visibility {
+         display: flex;
+         gap: 8px;
+         }
+         .visibility-choice {
+         flex: 1;
+         border: 1px solid var(--border);
+         background: var(--panel);
+         color: var(--text-dim);
+         border-radius: 8px;
+         padding: 8px;
+         font-size: 12px;
+         font-weight: 600;
+         cursor: pointer;
+         display: flex; align-items: center; justify-content: center; gap: 6px;
+         transition: border-color .15s, color .15s, background .15s;
+         }
+         .visibility-choice.active { color: var(--accent); border-color: var(--accent-dim); background: var(--accent-glow); }
+         .btn-create-repo {
+         background: var(--accent);
+         color: var(--accent-ink);
+         border: none;
+         border-radius: 8px;
+         padding: 10px;
+         font-size: 12.5px;
+         font-weight: 700;
+         cursor: pointer;
+         display: flex; align-items: center; justify-content: center; gap: 6px;
+         transition: filter .15s;
+         }
+         .btn-create-repo:hover { filter: brightness(1.08); }
+         .btn-create-repo:disabled { opacity: 0.45; cursor: not-allowed; }
+         .commit-msg-wrap { margin-top: 12px; }
          /* ── Dropzone ─────────────────────────────────────────── */
          .dropzone {
          position: relative;
-         border: 1.5px dashed #2c2c31;
+         border: 1.5px dashed var(--border);
          background: var(--panel);
-         border-radius: var(--radius);
-         padding: 30px 20px;
+         border-radius: var(--radius-lg);
+         padding: 28px 20px;
          display: flex;
          flex-direction: column;
          align-items: center;
          justify-content: center;
-         margin-bottom: 18px;
+         margin-bottom: 14px;
          text-align: center;
          cursor: pointer;
          transition: border-color .18s, background .18s;
@@ -219,8 +366,8 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
          }
          .dropzone-icon {
-         width: 44px; height: 44px;
-         border-radius: 12px;
+         width: 42px; height: 42px;
+         border-radius: 11px;
          background: var(--panel-2);
          border: 1px solid var(--border);
          display: flex; align-items: center; justify-content: center;
@@ -231,29 +378,12 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          .dropzone.drag-over .dropzone-icon { color: var(--accent); border-color: var(--accent-dim); }
          .dropzone-text { font-size: 14px; font-weight: 600; margin-top: 10px; }
          .dropzone-sub { font-size: 12px; color: var(--text-faint); margin-top: 4px; font-family: var(--mono); }
-         .dropzone-or {
-         font-size: 10.5px;
-         color: var(--text-faint);
-         text-transform: uppercase;
-         letter-spacing: 0.08em;
-         margin: 10px 0 2px;
-         }
          /* ── Queue ────────────────────────────────────────────── */
-         .queue-group-label {
-         font-size: 11px;
-         color: var(--text-faint);
-         font-family: var(--mono);
-         margin: 18px 0 8px 2px;
-         display: flex;
-         align-items: center;
-         gap: 6px;
-         }
-         .queue-group-label svg { flex-shrink: 0; }
          .queue { display: flex; flex-direction: column; gap: 8px; }
          .file-card {
          background: var(--panel);
          border: 1px solid var(--border);
-         border-radius: 11px;
+         border-radius: 12px;
          padding: 11px 12px;
          display: flex;
          flex-direction: column;
@@ -264,8 +394,8 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          from { opacity: 0; transform: translateY(6px); }
          to { opacity: 1; transform: translateY(0); }
          }
-         .file-card.is-error { border-color: rgba(248,113,113,0.35); }
-         .file-card.is-done { border-color: rgba(52,211,153,0.3); }
+         .file-card.is-error { border-color: var(--bad); }
+         .file-card.is-done { border-color: var(--accent-dim); }
          .file-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
          .file-meta { min-width: 0; display: flex; align-items: center; gap: 8px; }
          .file-type-chip {
@@ -292,8 +422,6 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          border-radius: 5px;
          flex-shrink: 0;
          font-family: var(--mono);
-         text-transform: uppercase;
-         letter-spacing: 0.03em;
          display: flex;
          align-items: center;
          gap: 4px;
@@ -301,7 +429,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          .status-pending { background: var(--panel-2); color: var(--text-dim); }
          .status-done { background: var(--good-dim); color: var(--good); }
          .status-error { background: var(--bad-dim); color: var(--bad); }
-         .status-pushing { background: var(--accent-glow); color: #93c5fd; }
+         .status-pushing { background: var(--accent-glow); color: var(--accent); }
          .spin { animation: spin .7s linear infinite; }
          @keyframes spin { to { transform: rotate(360deg); } }
          .remove-btn {
@@ -324,9 +452,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          }
          .path-input-wrap input:focus { outline: none; border-color: var(--accent); }
          .path-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none; }
-         .path-rewrite-flash {
-         animation: rewriteFlash .5s ease;
-         }
+         .path-rewrite-flash { animation: rewriteFlash .5s ease; }
          @keyframes rewriteFlash {
          0% { background: var(--accent-glow); border-color: var(--accent); }
          100% { background: var(--panel-2); border-color: var(--border-soft); }
@@ -334,7 +460,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          /* ── Empty state ──────────────────────────────────────── */
          .empty-state {
          text-align: center;
-         padding: 30px 16px;
+         padding: 28px 16px;
          color: var(--text-faint);
          }
          .empty-state svg { margin-bottom: 10px; opacity: 0.5; }
@@ -344,15 +470,14 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          position: fixed;
          left: 0; right: 0; bottom: 0;
          padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
-         background: linear-gradient(to top, var(--bg) 60%, transparent);
+         background: linear-gradient(to top, var(--bg) 65%, transparent);
          pointer-events: none;
          }
          .push-bar-inner { pointer-events: auto; max-width: 640px; margin: 0 auto; }
          .btn-primary {
          width: 100%;
          background: var(--accent);
-         background: linear-gradient(155deg, #4a8bfa, #2563eb);
-         color: #fff;
+         color: var(--accent-ink);
          font-weight: 700;
          padding: 15px;
          border: none;
@@ -363,9 +488,10 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          justify-content: center;
          align-items: center;
          gap: 8px;
-         box-shadow: 0 8px 24px -8px rgba(37, 99, 235, 0.55);
-         transition: transform .12s, box-shadow .12s, opacity .12s;
+         box-shadow: 0 10px 26px -10px rgba(74, 222, 128, 0.35);
+         transition: transform .12s, box-shadow .12s, opacity .12s, filter .12s;
          }
+         .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
          .btn-primary:active:not(:disabled) { transform: scale(0.98); }
          .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
          .hint {
@@ -386,7 +512,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          pointer-events: none;
          }
          .toast {
-         background: #1a1a1d;
+         background: var(--panel-3);
          border: 1px solid var(--border);
          border-radius: 11px;
          padding: 12px 14px;
@@ -394,11 +520,13 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          display: flex;
          align-items: center;
          gap: 9px;
-         box-shadow: 0 10px 30px -10px rgba(0,0,0,0.6);
+         box-shadow: var(--shadow-pop);
          animation: toastIn .3s cubic-bezier(.16,1,.3,1);
+         max-width: 640px;
+         margin: 0 auto;
          }
-         .toast.good { border-color: rgba(52,211,153,0.3); }
-         .toast.bad { border-color: rgba(248,113,113,0.3); }
+         .toast.good { border-color: var(--accent-dim); }
+         .toast.bad { border-color: var(--bad); }
          @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
          .toast-icon { flex-shrink: 0; }
          .toast.good .toast-icon { color: var(--good); }
@@ -409,8 +537,8 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          padding: 13px 15px;
          background: var(--panel);
          border: 1px solid var(--border);
-         border-radius: var(--radius);
-         margin-bottom: 16px;
+         border-radius: var(--radius-lg);
+         margin-bottom: 14px;
          font-size: 12.5px;
          font-family: var(--mono);
          color: var(--text-dim);
@@ -421,7 +549,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          }
          /* ── Organizer (repo file browser) ────────────────────── */
          .organizer-toggle-row { display: flex; gap: 8px; margin-top: 10px; }
-         .organizer-toggle-row .btn-secondary {
+         .btn-secondary {
          flex: 1;
          background: var(--panel-2);
          border: 1px solid var(--border);
@@ -434,21 +562,9 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          cursor: pointer;
          transition: border-color .15s, background .15s;
          }
-         .organizer-toggle-row .btn-secondary:hover { border-color: #35353c; background: #1e1e22; }
-         .organizer-toggle-row .btn-secondary:active { transform: scale(0.98); }
-         .organizer-wrap {
-         display: grid;
-         grid-template-rows: 0fr;
-         transition: grid-template-rows .28s cubic-bezier(.16,1,.3,1);
-         }
-         .organizer-wrap.open { grid-template-rows: 1fr; margin-top: 12px; }
-         .organizer-inner { overflow: hidden; }
-         .organizer-panel {
-         background: var(--panel-2);
-         border: 1px solid var(--border);
-         border-radius: var(--radius-sm);
-         padding: 12px;
-         }
+         .btn-secondary:hover { border-color: var(--text-faint); background: var(--panel-3); }
+         .btn-secondary:active { transform: scale(0.98); }
+         .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
          .organizer-status {
          font-size: 12px;
          color: var(--text-dim);
@@ -458,7 +574,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          }
          .organizer-status svg.spin { flex-shrink: 0; color: var(--accent); }
          .organizer-list {
-         max-height: 340px;
+         max-height: 360px;
          overflow-y: auto;
          display: flex;
          flex-direction: column;
@@ -473,7 +589,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          border-radius: 8px;
          cursor: pointer;
          }
-         .organizer-row:hover { background: var(--panel); }
+         .organizer-row:hover { background: var(--panel-2); }
          .organizer-row input[type="checkbox"] {
          width: 17px; height: 17px;
          flex-shrink: 0;
@@ -514,13 +630,10 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          text-align: center;
          padding: 24px 10px;
          }
-         .organizer-move-row {
-         display: flex;
-         gap: 8px;
-         }
+         .organizer-move-row { display: flex; gap: 8px; }
          .organizer-move-row input[type="text"] {
          flex: 1;
-         background: var(--panel);
+         background: var(--panel-2);
          border: 1px solid var(--border);
          color: var(--text);
          border-radius: 9px;
@@ -533,7 +646,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          .organizer-move-row input[type="text"]:focus { border-color: var(--accent-dim); }
          .organizer-move-btn {
          background: var(--accent);
-         color: #fff;
+         color: var(--accent-ink);
          border: none;
          border-radius: 9px;
          padding: 10px 16px;
@@ -542,17 +655,17 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          cursor: pointer;
          display: flex; align-items: center; gap: 6px;
          white-space: nowrap;
-         transition: background .15s;
+         transition: filter .15s;
          flex-shrink: 0;
          }
-         .organizer-move-btn:hover { background: var(--accent-dim); }
+         .organizer-move-btn:hover { filter: brightness(1.08); }
          .organizer-move-btn:disabled { opacity: .4; cursor: not-allowed; }
          .organizer-count-pill {
          font-size: 11px;
          color: var(--text-faint);
          font-family: var(--mono);
          padding: 3px 8px;
-         background: var(--panel);
+         background: var(--panel-2);
          border: 1px solid var(--border);
          border-radius: 999px;
          }
@@ -579,7 +692,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          align-items: center;
          gap: 8px;
          padding: 7px 8px;
-         background: var(--panel);
+         background: var(--panel-2);
          }
          .organizer-folder-toggle {
          background: none;
@@ -616,7 +729,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          .organizer-folder-del {
          background: var(--bad-dim);
          color: var(--bad);
-         border: 1px solid rgba(248,113,113,0.3);
+         border: 1px solid var(--bad);
          border-radius: 7px;
          padding: 5px 9px;
          font-size: 11px;
@@ -628,22 +741,14 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          flex-shrink: 0;
          transition: background .15s;
          }
-         .organizer-folder-del:hover { background: rgba(248,113,113,0.2); }
-         .organizer-folder-rows {
-         flex-direction: column;
-         gap: 2px;
-         padding: 4px 4px 6px 20px;
-         }
+         .organizer-folder-del:hover { background: rgba(248,113,122,0.22); }
+         .organizer-folder-rows { flex-direction: column; gap: 2px; padding: 4px 4px 6px 20px; }
          .organizer-folder-rows .organizer-row { padding: 6px 8px; }
-         .organizer-danger-row {
-         display: flex;
-         gap: 8px;
-         margin-top: 8px;
-         }
+         .organizer-danger-row { display: flex; gap: 8px; margin-top: 8px; }
          .organizer-delete-btn {
          background: var(--bad-dim);
          color: var(--bad);
-         border: 1px solid rgba(248,113,113,0.3);
+         border: 1px solid var(--bad);
          border-radius: 9px;
          padding: 10px 14px;
          font-size: 12.5px;
@@ -654,135 +759,228 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          transition: background .15s;
          flex: 1;
          }
-         .organizer-delete-btn:hover { background: rgba(248,113,113,0.2); }
+         .organizer-delete-btn:hover { background: rgba(248,113,122,0.2); }
          .organizer-delete-btn:disabled { opacity: .4; cursor: not-allowed; }
-         .organizer-delete-all-btn {
-         background: var(--bad);
-         color: #fff;
-         border: none;
+         .organizer-delete-all-btn { background: var(--bad); color: #fff; border: none; }
+         .organizer-delete-all-btn:hover { background: #e0535d; }
+         .organizer-toggle-row { display: flex; gap: 8px; margin-top: 10px; }
+         .organizer-wrap {
+         display: grid;
+         grid-template-rows: 0fr;
+         transition: grid-template-rows .28s cubic-bezier(.16,1,.3,1);
          }
-         .organizer-delete-all-btn:hover { background: #e05f5f; }
+         .organizer-wrap.open { grid-template-rows: 1fr; margin-top: 12px; }
+         .organizer-inner { overflow: hidden; }
+         .organizer-panel {
+         background: var(--panel-2);
+         border: 1px solid var(--border);
+         border-radius: var(--radius-sm);
+         padding: 12px;
+         }
       </style>
    </head>
    <body>
       <div class="toast-stack" id="toastStack"></div>
-      <div class="header">
-         <div class="brand">
-            <div class="brand-mark">
-               <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                  <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
-               </svg>
+      <div class="wrap">
+         <div class="header">
+            <div class="brand">
+               <div class="brand-mark">
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                     <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+                  </svg>
+               </div>
+               <div>
+                  <h1 class="title">Pusher</h1>
+                  <div class="subtitle" id="fileCountLabel">no files queued</div>
+               </div>
             </div>
-            <div>
-               <h1 class="title">Pusher</h1>
-               <div class="subtitle" id="fileCountLabel">no files queued</div>
+            <div class="header-actions">
+               <button class="icon-btn" id="settingsBtn" title="Settings">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  </svg>
+               </button>
             </div>
          </div>
-         <div class="header-actions">
-            <button class="icon-btn" id="settingsBtn" title="Settings">
-               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-               </svg>
+
+         <!-- ── Settings panel ── -->
+         <div class="settings-wrap" id="settingsWrap">
+            <div class="settings-inner">
+               <div class="settings-panel">
+                  <div class="settings-section-label">Appearance</div>
+                  <div class="setting-row">
+                     <div class="setting-copy">
+                        <div class="setting-name">Theme</div>
+                        <div class="setting-desc">Switch between dark and light. Saved on this device.</div>
+                     </div>
+                     <div class="theme-row">
+                        <button type="button" class="theme-choice" id="themeDarkBtn" title="Dark">
+                           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                        </button>
+                        <button type="button" class="theme-choice" id="themeLightBtn" title="Light">
+                           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" stroke-width="2"></circle><path stroke-linecap="round" stroke-width="2" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"></path></svg>
+                        </button>
+                     </div>
+                  </div>
+                  <div class="settings-section-label">Upload behavior</div>
+                  <div class="setting-row">
+                     <div class="setting-copy">
+                        <div class="setting-name">Auto-route .js to api/</div>
+                        <div class="setting-desc">New <code>.js</code> files are placed in <code>api/</code> automatically. Flipping this rewrites paths already in the queue too.</div>
+                     </div>
+                     <label class="switch">
+                     <input type="checkbox" id="autoApiToggle">
+                     <span class="switch-track"><span class="switch-thumb"></span></span>
+                     </label>
+                  </div>
+                  <div class="setting-row">
+                     <div class="setting-copy">
+                        <div class="setting-name">Flatten zip folders</div>
+                        <div class="setting-desc">Drop the internal folder structure from zips and use each file's name only (still respects the api/ rule above).</div>
+                     </div>
+                     <label class="switch">
+                     <input type="checkbox" id="flattenToggle">
+                     <span class="switch-track"><span class="switch-thumb"></span></span>
+                     </label>
+                  </div>
+                  <div class="setting-row">
+                     <div class="setting-copy">
+                        <div class="setting-name">Skip dotfiles</div>
+                        <div class="setting-desc">Ignore hidden files from zips, like <code>.DS_Store</code> and <code>.gitignore</code>.</div>
+                     </div>
+                     <label class="switch">
+                     <input type="checkbox" id="skipDotfilesToggle">
+                     <span class="switch-track"><span class="switch-thumb"></span></span>
+                     </label>
+                  </div>
+                  <div class="settings-footer">
+                     <span>saved locally</span>
+                     <button class="clear-link" id="clearQueueBtn">clear queue</button>
+                  </div>
+               </div>
+            </div>
+         </div>
+
+         <!-- ── Mode tabs ── -->
+         <div class="mode-tabs">
+            <button type="button" class="mode-tab active" id="tabPush">
+               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+               Push files
+            </button>
+            <button type="button" class="mode-tab" id="tabOrganize">
+               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+               Organize repo
             </button>
          </div>
-      </div>
-      <!-- ── Settings panel ── -->
-      <div class="settings-wrap" id="settingsWrap">
-         <div class="settings-inner">
-            <div class="settings-panel">
-               <div class="setting-row">
-                  <div class="setting-copy">
-                     <div class="setting-name">Auto-route .js to api/</div>
-                     <div class="setting-desc">New <code>.js</code> files are placed in <code>api/</code> automatically. Flipping this rewrites paths already in the queue too.</div>
+
+         <!-- ── Repo / branch / commit message (shared across modes) ── -->
+         <div class="panel">
+            <div class="panel-title">
+               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7h-9m3-3l-3 3 3 3m-3 4h9m-3-3l3 3-3 3M4 7a2 2 0 100-4 2 2 0 000 4zm0 10a2 2 0 100 4 2 2 0 000-4zm0-10v10"></path></svg>
+               Repository
+            </div>
+            <div class="repo-row">
+               <select id="repoSelect">
+                  <option value="">Fetch repos first...</option>
+               </select>
+               <button class="icon-btn" id="fetchReposBtn" title="Refresh repo list">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+               </button>
+            </div>
+            <div class="branch-chip-row">
+               <svg class="branch-icon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v12m0 0a3 3 0 103 3m-3-3a3 3 0 11-3 3m12-15a3 3 0 11-3-3m3 3a3 3 0 11-3 3m0 0v3a3 3 0 01-3 3H9"></path></svg>
+               <select id="branchSelect">
+                  <option value="">default branch</option>
+               </select>
+            </div>
+            <button type="button" class="new-repo-toggle" id="newRepoToggleBtn">
+               <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+               Create a new repository
+            </button>
+            <div class="new-repo-form" id="newRepoForm">
+               <div class="new-repo-form-inner">
+                  <div class="new-repo-fields">
+                     <input type="text" class="text-input mono" id="newRepoName" placeholder="repo-name">
+                     <input type="text" class="text-input" id="newRepoDesc" placeholder="Description (optional)">
+                     <div class="new-repo-visibility">
+                        <button type="button" class="visibility-choice active" id="visPrivateBtn">
+                           <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                           Private
+                        </button>
+                        <button type="button" class="visibility-choice" id="visPublicBtn">
+                           <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 000 18M12.5 3a17 17 0 010 18"></path></svg>
+                           Public
+                        </button>
+                     </div>
+                     <button type="button" class="btn-create-repo" id="createRepoBtn">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span id="createRepoBtnLabel">Create repository</span>
+                     </button>
                   </div>
-                  <label class="switch">
-                  <input type="checkbox" id="autoApiToggle">
-                  <span class="switch-track"><span class="switch-thumb"></span></span>
-                  </label>
-               </div>
-               <div class="setting-row">
-                  <div class="setting-copy">
-                     <div class="setting-name">Flatten zip folders</div>
-                     <div class="setting-desc">Drop the internal folder structure from zips and use each file's name only (still respects the api/ rule above).</div>
-                  </div>
-                  <label class="switch">
-                  <input type="checkbox" id="flattenToggle">
-                  <span class="switch-track"><span class="switch-thumb"></span></span>
-                  </label>
-               </div>
-               <div class="setting-row">
-                  <div class="setting-copy">
-                     <div class="setting-name">Skip dotfiles</div>
-                     <div class="setting-desc">Ignore hidden files from zips, like <code>.DS_Store</code> and <code>.gitignore</code>.</div>
-                  </div>
-                  <label class="switch">
-                  <input type="checkbox" id="skipDotfilesToggle">
-                  <span class="switch-track"><span class="switch-thumb"></span></span>
-                  </label>
-               </div>
-               <div class="settings-footer">
-                  <span>saved locally</span>
-                  <button class="clear-link" id="clearQueueBtn">clear queue</button>
                </div>
             </div>
+            <div class="commit-msg-wrap">
+               <label class="label">Commit message</label>
+               <input type="text" class="text-input mono" id="commitMsgInput" placeholder="Add 3 files">
+            </div>
          </div>
-      </div>
-      <div class="panel">
-         <label class="label">Target repository</label>
-         <div class="repo-row">
-            <select id="repoSelect">
-               <option value="">Fetch repos first...</option>
-            </select>
-            <button class="icon-btn" id="fetchReposBtn" title="Fetch repos">
-               <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+         <!-- ══════════════════ PUSH MODE ══════════════════ -->
+         <div class="mode-panel active" id="pushPanel">
+            <div class="dropzone" id="dropzone">
+               <input type="file" id="fileInput" multiple accept=".js,.html,.css,.json,.zip,.md,.txt,.yml,.yaml,.svg,.png,.jpg,.jpeg">
+               <div class="dropzone-icon">
+                  <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                  </svg>
+               </div>
+               <div class="dropzone-text">Drop files or a .zip</div>
+               <div class="dropzone-sub">a zip is unpacked automatically</div>
+            </div>
+            <div id="zipProgress" style="display:none;" class="zip-progress">
+               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                </svg>
-            </button>
+               <span id="zipProgressText">Reading archive...</span>
+            </div>
+            <div id="fileQueue" class="queue"></div>
+            <div id="emptyState" class="empty-state">
+               <svg width="30" height="30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-6 4h6m2 5H7a2 2 0 01-2-2V4a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V20a2 2 0 01-2 2z"></path>
+               </svg>
+               <div class="empty-state-text">queue is empty</div>
+            </div>
          </div>
-         <div class="organizer-toggle-row">
-            <button class="btn-secondary" id="organizeBtn">
-               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-               <span id="organizeBtnLabel">Organize repo files</span>
-            </button>
-            <button class="btn-secondary" id="downloadZipBtn">
-               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
-               <span id="downloadZipBtnLabel">Download ZIP</span>
-            </button>
-         </div>
-         <div class="organizer-wrap" id="organizerWrap">
-            <div class="organizer-inner">
-               <div class="organizer-panel">
-                  <div class="organizer-status" id="organizerStatus" style="display:none;"></div>
-                  <div id="organizerBody"></div>
+
+         <!-- ══════════════════ ORGANIZE MODE ══════════════════ -->
+         <div class="mode-panel" id="organizePanel">
+            <div class="panel">
+               <div class="organizer-toggle-row">
+                  <button class="btn-secondary" id="organizeBtn">
+                     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                     <span id="organizeBtnLabel">Load repo files</span>
+                  </button>
+                  <button class="btn-secondary" id="downloadZipBtn">
+                     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
+                     <span id="downloadZipBtnLabel">Download ZIP</span>
+                  </button>
+               </div>
+               <div class="organizer-wrap open" id="organizerWrap">
+                  <div class="organizer-inner">
+                     <div class="organizer-panel">
+                        <div class="organizer-status" id="organizerStatus" style="display:none;"></div>
+                        <div id="organizerBody"></div>
+                     </div>
+                  </div>
                </div>
             </div>
          </div>
       </div>
-      <div class="dropzone" id="dropzone">
-         <input type="file" id="fileInput" multiple accept=".js,.html,.css,.json,.zip,.md,.txt,.yml,.yaml,.svg,.png,.jpg,.jpeg">
-         <div class="dropzone-icon">
-            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-            </svg>
-         </div>
-         <div class="dropzone-text">Drop files or a .zip</div>
-         <div class="dropzone-sub">a zip is unpacked automatically</div>
-      </div>
-      <div id="zipProgress" style="display:none;" class="zip-progress">
-         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-         </svg>
-         <span id="zipProgressText">Reading archive...</span>
-      </div>
-      <div id="fileQueue" class="queue"></div>
-      <div id="emptyState" class="empty-state">
-         <svg width="30" height="30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-6 4h6m2 5H7a2 2 0 01-2-2V4a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V20a2 2 0 01-2 2z"></path>
-         </svg>
-         <div class="empty-state-text">queue is empty</div>
-      </div>
-      <div class="push-bar">
+
+      <div class="push-bar" id="pushBar">
          <div class="push-bar-inner">
             <button class="btn-primary" id="pushBtn" disabled>
                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -799,13 +997,13 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          const API_URL = '/api/edit-file';
          let fileState = [];
          let idCounter = 0;
-         
+
          // ══════════════════════════════════════════════════════════
          // SETTINGS — persisted to localStorage, applied live
          // ══════════════════════════════════════════════════════════
          const SETTINGS_KEY = 'pusher.settings.v1';
-         const defaultSettings = { autoApi: true, flatten: false, skipDotfiles: true };
-         
+         const defaultSettings = { autoApi: true, flatten: false, skipDotfiles: true, theme: 'dark' };
+
          function loadSettings() {
            try {
              const raw = localStorage.getItem(SETTINGS_KEY);
@@ -818,25 +1016,28 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          function saveSettings() {
            try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
          }
-         
+
          let settings = loadSettings();
-         
+
          const autoApiToggle = document.getElementById('autoApiToggle');
          const flattenToggle = document.getElementById('flattenToggle');
          const skipDotfilesToggle = document.getElementById('skipDotfilesToggle');
          const settingsWrap = document.getElementById('settingsWrap');
          const settingsBtn = document.getElementById('settingsBtn');
          const hintText = document.getElementById('hintText');
-         
+         const themeDarkBtn = document.getElementById('themeDarkBtn');
+         const themeLightBtn = document.getElementById('themeLightBtn');
+
          autoApiToggle.checked = settings.autoApi;
          flattenToggle.checked = settings.flatten;
          skipDotfilesToggle.checked = settings.skipDotfiles;
          updateHint();
-         
+         applyTheme();
+
          settingsBtn.addEventListener('click', () => {
            settingsWrap.classList.toggle('open');
          });
-         
+
          autoApiToggle.addEventListener('change', () => {
            settings.autoApi = autoApiToggle.checked;
            saveSettings();
@@ -852,20 +1053,29 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            settings.skipDotfiles = skipDotfilesToggle.checked;
            saveSettings();
          });
-         
+
          document.getElementById('clearQueueBtn').addEventListener('click', () => {
            if (fileState.length === 0) return;
            fileState = [];
            renderQueue();
            showToast('Queue cleared', 'good');
          });
-         
+
          function updateHint() {
            hintText.textContent = settings.autoApi
              ? '.js files auto-route to api/ — tap the gear to change this'
              : 'auto api/ routing is off — paths are used as-is';
          }
-         
+
+         // ── Theme ──
+         function applyTheme() {
+           document.documentElement.setAttribute('data-theme', settings.theme);
+           themeDarkBtn.classList.toggle('active', settings.theme === 'dark');
+           themeLightBtn.classList.toggle('active', settings.theme === 'light');
+         }
+         themeDarkBtn.addEventListener('click', () => { settings.theme = 'dark'; saveSettings(); applyTheme(); });
+         themeLightBtn.addEventListener('click', () => { settings.theme = 'light'; saveSettings(); applyTheme(); });
+
          // Live-rewrite every queued .js path when the toggle flips, without
          // touching files a person has already hand-edited away from the
          // convention (tracked via userEdited on each file).
@@ -883,7 +1093,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            });
            if (changed) renderQueue();
          }
-         
+
          // ══════════════════════════════════════════════════════════
          // PATH COMPUTATION
          // ══════════════════════════════════════════════════════════
@@ -895,35 +1105,148 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            }
            return base;
          }
-         
+
          // ══════════════════════════════════════════════════════════
-         // REPOS
+         // MODE TABS — Push files / Organize repo
          // ══════════════════════════════════════════════════════════
+         const tabPush = document.getElementById('tabPush');
+         const tabOrganize = document.getElementById('tabOrganize');
+         const pushPanel = document.getElementById('pushPanel');
+         const organizePanel = document.getElementById('organizePanel');
+         const pushBar = document.getElementById('pushBar');
+
+         function setMode(mode) {
+           const isPush = mode === 'push';
+           tabPush.classList.toggle('active', isPush);
+           tabOrganize.classList.toggle('active', !isPush);
+           pushPanel.classList.toggle('active', isPush);
+           organizePanel.classList.toggle('active', !isPush);
+           pushBar.style.display = isPush ? '' : 'none';
+           if (!isPush && repoTreeLoadedFor !== document.getElementById('repoSelect').value) {
+             // Auto-load the organizer the first time this repo's tab is opened
+             const repo = document.getElementById('repoSelect').value;
+             if (repo && repo.indexOf('/') !== -1) loadRepoTree(repo);
+           }
+         }
+         tabPush.addEventListener('click', () => setMode('push'));
+         tabOrganize.addEventListener('click', () => setMode('organize'));
+
+         // ══════════════════════════════════════════════════════════
+         // REPOS, BRANCHES, NEW REPO
+         // ══════════════════════════════════════════════════════════
+         const repoSelect = document.getElementById('repoSelect');
+         const branchSelect = document.getElementById('branchSelect');
+
          async function loadRepos() {
-           const select = document.getElementById('repoSelect');
-           const previouslySelected = select.value;
-           select.innerHTML = '<option>Loading...</option>';
+           const previouslySelected = repoSelect.value;
+           repoSelect.innerHTML = '<option>Loading...</option>';
            try {
              const res = await fetch(`${API_URL}?fetchRepos=true`);
              if (!res.ok) {
                const err = await res.json().catch(() => ({}));
-               select.innerHTML = `<option>${err.error || 'API Error'}</option>`;
+               repoSelect.innerHTML = `<option>${err.error || 'API Error'}</option>`;
                return;
              }
              const repos = await res.json();
-             select.innerHTML = (repos && repos.length)
+             repoSelect.innerHTML = (repos && repos.length)
                ? repos.map(r => `<option value="${r.full_name}">${r.name}</option>`).join('')
                : '<option>No repos found</option>';
              if (previouslySelected && repos.some(r => r.full_name === previouslySelected)) {
-               select.value = previouslySelected;
+               repoSelect.value = previouslySelected;
              }
+             loadBranches();
            } catch (err) {
-             select.innerHTML = '<option>Network error</option>';
+             repoSelect.innerHTML = '<option>Network error</option>';
            }
          }
          document.getElementById('fetchReposBtn').addEventListener('click', loadRepos);
+         repoSelect.addEventListener('change', loadBranches);
          loadRepos();
-         
+
+         async function loadBranches() {
+           const repo = repoSelect.value;
+           if (!repo || repo.indexOf('/') === -1) {
+             branchSelect.innerHTML = '<option value="">default branch</option>';
+             return;
+           }
+           branchSelect.innerHTML = '<option value="">Loading branches...</option>';
+           try {
+             const res = await fetch(`${API_URL}?listBranches=${encodeURIComponent(repo)}`);
+             if (!res.ok) {
+               branchSelect.innerHTML = '<option value="">default branch</option>';
+               return;
+             }
+             const branches = await res.json();
+             branchSelect.innerHTML = '<option value="">default branch</option>' +
+               branches.map(b => `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}${b.protected ? ' 🔒' : ''}</option>`).join('');
+           } catch (_) {
+             branchSelect.innerHTML = '<option value="">default branch</option>';
+           }
+         }
+
+         function currentBranch() {
+           return branchSelect.value || undefined; // undefined = let backend use repo default
+         }
+
+         function currentCommitMessage(fallback) {
+           const typed = document.getElementById('commitMsgInput').value.trim();
+           return typed || fallback;
+         }
+
+         // ── Create new repo (inline form) ──
+         const newRepoToggleBtn = document.getElementById('newRepoToggleBtn');
+         const newRepoForm = document.getElementById('newRepoForm');
+         const visPrivateBtn = document.getElementById('visPrivateBtn');
+         const visPublicBtn = document.getElementById('visPublicBtn');
+         let newRepoIsPrivate = true;
+
+         newRepoToggleBtn.addEventListener('click', () => newRepoForm.classList.toggle('open'));
+         visPrivateBtn.addEventListener('click', () => {
+           newRepoIsPrivate = true;
+           visPrivateBtn.classList.add('active');
+           visPublicBtn.classList.remove('active');
+         });
+         visPublicBtn.addEventListener('click', () => {
+           newRepoIsPrivate = false;
+           visPublicBtn.classList.add('active');
+           visPrivateBtn.classList.remove('active');
+         });
+
+         document.getElementById('createRepoBtn').addEventListener('click', async () => {
+           const nameInput = document.getElementById('newRepoName');
+           const descInput = document.getElementById('newRepoDesc');
+           const btn = document.getElementById('createRepoBtn');
+           const label = document.getElementById('createRepoBtnLabel');
+           const name = nameInput.value.trim();
+           if (!name) return showToast('Enter a repository name', 'bad');
+
+           btn.disabled = true;
+           const originalLabel = label.textContent;
+           label.textContent = 'Creating...';
+           try {
+             const res = await fetch(API_URL, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ createRepo: true, name, description: descInput.value.trim(), isPrivate: newRepoIsPrivate })
+             });
+             const data = await res.json();
+             if (!res.ok) throw new Error(data.error || 'Could not create repository');
+
+             showToast(`Created ${data.full_name}`, 'good');
+             nameInput.value = '';
+             descInput.value = '';
+             newRepoForm.classList.remove('open');
+             await loadRepos();
+             repoSelect.value = data.full_name;
+             loadBranches();
+           } catch (err) {
+             showToast(err.message || 'Repository creation failed', 'bad');
+           } finally {
+             btn.disabled = false;
+             label.textContent = originalLabel;
+           }
+         });
+
          // ══════════════════════════════════════════════════════════
          // FILE INTAKE — plain files + zip extraction
          // ══════════════════════════════════════════════════════════
@@ -931,12 +1254,12 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          const fileInput = document.getElementById('fileInput');
          const zipProgress = document.getElementById('zipProgress');
          const zipProgressText = document.getElementById('zipProgressText');
-         
+
          fileInput.addEventListener('change', async (e) => {
            await intake(Array.from(e.target.files));
            e.target.value = '';
          });
-         
+
          ['dragenter', 'dragover'].forEach(evt =>
            dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('drag-over'); })
          );
@@ -949,7 +1272,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            if (!dt) return;
            await intake(Array.from(dt.files || []));
          });
-         
+
          async function intake(files) {
            for (const file of files) {
              if (file.name.toLowerCase().endsWith('.zip')) {
@@ -960,7 +1283,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            }
            renderQueue();
          }
-         
+
          async function intakeZip(zipFile) {
            zipProgress.style.display = 'flex';
            zipProgressText.textContent = `Reading ${zipFile.name}...`;
@@ -973,7 +1296,6 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                const leafName = parts[parts.length - 1];
                if (!leafName) { continue; }
                if (settings.skipDotfiles && leafName.startsWith('.')) { continue; }
-               // ignore common junk from zip exports
                if (/(^|\/)__MACOSX(\/|$)/.test(entry.name)) continue;
                done++;
                zipProgressText.textContent = `Extracting ${leafName} (${done}/${entries.length})...`;
@@ -988,7 +1310,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              zipProgress.style.display = 'none';
            }
          }
-         
+
          function guessMime(name) {
            if (name.endsWith('.js')) return 'text/javascript';
            if (name.endsWith('.html')) return 'text/html';
@@ -996,7 +1318,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            if (name.endsWith('.json')) return 'application/json';
            return 'application/octet-stream';
          }
-         
+
          async function addSingleFile(file, fileName, relPath) {
            const content = await toBase64(file);
            const path = computePath(fileName, relPath);
@@ -1011,7 +1333,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              userEdited: false,
            });
          }
-         
+
          function toBase64(file) {
            return new Promise((resolve, reject) => {
              const reader = new FileReader();
@@ -1020,13 +1342,13 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              reader.readAsDataURL(file);
            });
          }
-         
+
          function formatSize(bytes) {
            if (bytes < 1024) return bytes + ' B';
            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
          }
-         
+
          function extOf(name) {
            const m = /\.([a-z0-9]+)$/i.exec(name);
            return m ? m[1].toLowerCase() : '';
@@ -1039,7 +1361,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            if (ext === 'json') return { cls: 'chip-json', label: '{}' };
            return { cls: 'chip-other', label: (ext || '?').slice(0, 2).toUpperCase() };
          }
-         
+
          // ══════════════════════════════════════════════════════════
          // QUEUE MANAGEMENT
          // ══════════════════════════════════════════════════════════
@@ -1047,32 +1369,32 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            const file = fileState.find(f => f.id === id);
            if (file) { file.path = newPath; file.userEdited = true; }
          };
-         
+
          window.removeFile = (id) => {
            fileState = fileState.filter(f => f.id !== id);
            renderQueue();
          };
-         
+
          function statusBadge(status) {
            if (status === 'done') return `<span class="file-status status-done"><svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>pushed</span>`;
            if (status === 'error') return `<span class="file-status status-error"><svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>failed</span>`;
            if (status === 'pushing') return `<span class="file-status status-pushing"><svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>pushing</span>`;
            return `<span class="file-status status-pending">pending</span>`;
          }
-         
+
          function renderQueue() {
            const container = document.getElementById('fileQueue');
            const pushBtn = document.getElementById('pushBtn');
            const emptyState = document.getElementById('emptyState');
            const fileCountLabel = document.getElementById('fileCountLabel');
-         
+
            emptyState.style.display = fileState.length === 0 ? 'block' : 'none';
            container.style.display = fileState.length === 0 ? 'none' : 'flex';
-         
+
            fileCountLabel.textContent = fileState.length === 0
              ? 'no files queued'
              : `${fileState.length} file${fileState.length === 1 ? '' : 's'} queued`;
-         
+
            container.innerHTML = fileState.map((f, i) => {
              const chip = chipFor(f.originalName);
              const cardClass = f.status === 'done' ? ' is-done' : f.status === 'error' ? ' is-error' : '';
@@ -1100,17 +1422,16 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                </div>
              </div>`;
            }).join('');
-         
-           // clear one-shot flash flag after paint
+
            fileState.forEach(f => f._flash = false);
-         
+
            pushBtn.disabled = fileState.length === 0;
          }
-         
+
          function escapeHtml(s) {
            return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
          }
-         
+
          // ══════════════════════════════════════════════════════════
          // TOASTS
          // ══════════════════════════════════════════════════════════
@@ -1130,21 +1451,14 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              setTimeout(() => el.remove(), 250);
            }, 3400);
          }
-         
+
          // ══════════════════════════════════════════════════════════
          // PUSH
          // ══════════════════════════════════════════════════════════
-         // Bulk-commit threshold: below this, the old one-PUT-per-file flow
-         // (which also handles the GET-for-sha "update existing file" case
-         // file-by-file) runs as before — it's simpler and fine for a
-         // handful of files. At/above it, we switch to a single Git Data
-         // API commit covering every queued file at once, since 1-by-1
-         // Contents API calls would mean one commit (and 2 requests) PER
-         // FILE — painfully slow for a 1,000-file zip.
          const BULK_COMMIT_THRESHOLD = 10;
 
          document.getElementById('pushBtn').addEventListener('click', async () => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
            if (fileState.length === 0) return showToast('Add at least one file', 'bad');
 
@@ -1162,9 +1476,6 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            btn.disabled = fileState.length === 0;
          });
 
-         // Fast path: every queued file goes into ONE commit via the
-         // backend's bulkCommit route (blobs created in parallel server-side,
-         // then one tree + one commit + one ref update).
          async function pushBulk(repo, label, originalLabel) {
            fileState.forEach(f => f.status = 'pushing');
            renderQueue();
@@ -1177,8 +1488,9 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                body: JSON.stringify({
                  bulkCommit: true,
                  repo,
+                 branch: currentBranch(),
                  files: fileState.map(f => ({ path: f.path, content: f.content })),
-                 message: `Add ${fileState.length} files`
+                 message: currentCommitMessage(`Add ${fileState.length} files`)
                })
              });
 
@@ -1209,12 +1521,11 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            }
          }
 
-         // Slower path kept for small batches: one PUT (Contents API) per
-         // file, each its own commit. Still useful for a handful of files
-         // where per-file progress/feedback matters more than commit count.
          async function pushOneByOne(repo, label, originalLabel) {
            let successCount = 0;
            let failCount = 0;
+           const branch = currentBranch();
+           const message = currentCommitMessage(null);
 
            for (const f of fileState) {
              f.status = 'pushing';
@@ -1223,7 +1534,9 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              try {
                let sha;
                try {
-                 const getRes = await fetch(`${API_URL}?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(f.path)}`);
+                 const qs = new URLSearchParams({ repo, path: f.path });
+                 if (branch) qs.set('branch', branch);
+                 const getRes = await fetch(`${API_URL}?${qs.toString()}`);
                  if (getRes.ok) {
                    const existing = await getRes.json();
                    if (existing && existing.sha) sha = existing.sha;
@@ -1233,7 +1546,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                const putRes = await fetch(API_URL, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ repo, path: f.path, content: f.content, sha })
+                 body: JSON.stringify({ repo, path: f.path, content: f.content, sha, branch, message: message || `Add ${f.path}` })
                });
 
                if (putRes.ok) {
@@ -1260,7 +1573,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              showToast(`${successCount} pushed, ${failCount} failed — check status badges`, 'bad');
            }
          }
-         
+
          renderQueue();
 
          // ══════════════════════════════════════════════════════════
@@ -1268,7 +1581,6 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          // ══════════════════════════════════════════════════════════
          const organizeBtn = document.getElementById('organizeBtn');
          const organizeBtnLabel = document.getElementById('organizeBtnLabel');
-         const organizerWrap = document.getElementById('organizerWrap');
          const organizerStatus = document.getElementById('organizerStatus');
          const organizerBody = document.getElementById('organizerBody');
 
@@ -1278,39 +1590,41 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          let collapsedFolders = new Set(); // folder paths currently collapsed in the UI
 
          organizeBtn.addEventListener('click', async () => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            if (!repo || repo.indexOf('/') === -1) {
              return showToast('Select a repository first', 'bad');
            }
-
-           const isOpen = organizerWrap.classList.contains('open');
-           if (isOpen) {
-             organizerWrap.classList.remove('open');
-             return;
-           }
-           organizerWrap.classList.add('open');
-
-           if (repoTreeLoadedFor !== repo) {
-             await loadRepoTree(repo);
-           } else {
-             renderOrganizer();
-           }
+           await loadRepoTree(repo);
          });
 
-         // Recursively walk the repo's contents using the existing listFiles
-         // endpoint (GitHub contents API under the hood), since there's no
-         // single recursive-tree call wired up on the backend.
+         // Loads the full repo tree in ONE request via the backend's
+         // listTree route (Git Data API, recursive=1) instead of recursing
+         // folder-by-folder through the Contents API. Falls back to the
+         // slower walkDir only if listTree fails for some reason (e.g. a
+         // backend that hasn't been redeployed with the new route yet).
          async function loadRepoTree(repo) {
            selectedPaths = new Set();
            repoTree = [];
            organizerBody.innerHTML = '';
            organizerStatus.style.display = 'flex';
-           organizerStatus.innerHTML = spinnerHtml('Scanning repository...');
+           organizerStatus.innerHTML = spinnerHtml('Loading repository tree...');
            organizeBtn.disabled = true;
-           organizeBtnLabel.textContent = 'Scanning...';
+           organizeBtnLabel.textContent = 'Loading...';
 
            try {
-             await walkDir(repo, '');
+             try {
+               const res = await fetch(`${API_URL}?listTree=${encodeURIComponent(repo)}&branch=${encodeURIComponent(currentBranch() || '')}`);
+               if (!res.ok) throw new Error('listTree unavailable');
+               const data = await res.json();
+               repoTree = data.files;
+               if (data.truncated) {
+                 showToast('Repo is very large — tree may be incomplete (GitHub API limit)', 'bad');
+               }
+             } catch (fallbackErr) {
+               // Backend route missing/failed — fall back to the old walk.
+               repoTree = [];
+               await walkDir(repo, '');
+             }
              repoTreeLoadedFor = repo;
              organizerStatus.style.display = 'none';
              renderOrganizer();
@@ -1320,7 +1634,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              organizerBody.innerHTML = '';
            } finally {
              organizeBtn.disabled = false;
-             organizeBtnLabel.textContent = 'Organize repo files';
+             organizeBtnLabel.textContent = 'Load repo files';
            }
          }
 
@@ -1345,20 +1659,24 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            return `<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="spin"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg><span>${escapeHtml(text)}</span>`;
          }
 
-         // Group the flat file list by their top-level folder so the UI can
-         // offer a single "delete this folder" action instead of forcing
-         // file-by-file deletion for repos with nested directories.
-         // Files directly at repo root (no "/" in their path) have no
-         // folder group and are rendered as loose rows above the groups.
+         // Group the flat file list by their TOP-LEVEL folder (first path
+         // segment) so the UI offers a single "delete this folder" action
+         // that covers everything nested underneath it — not just files
+         // that happen to sit directly inside it. Grouping by immediate
+         // parent instead would split deeply-nested repos (Next.js's
+         // components/ui, components/forms, app/(dashboard)/settings,
+         // etc.) into many leaf-level groups, forcing repeated clicks that
+         // look like file-by-file deletion even though each click is
+         // still a single-commit folder delete.
          function groupByFolder(files) {
-           const groups = new Map(); // folderPath -> files[]
+           const groups = new Map();
            const rootFiles = [];
            for (const f of files) {
-             const lastSlash = f.path.lastIndexOf('/');
-             if (lastSlash < 0) {
+             const firstSlash = f.path.indexOf('/');
+             if (firstSlash < 0) {
                rootFiles.push(f);
              } else {
-               const folder = f.path.slice(0, lastSlash);
+               const folder = f.path.slice(0, firstSlash);
                if (!groups.has(folder)) groups.set(folder, []);
                groups.get(folder).push(f);
              }
@@ -1461,13 +1779,13 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          };
 
          // ══════════════════════════════════════════════════════════
-         // DELETE FILES (single / selected / all)
+         // DELETE FILES (single / selected / all / folder)
          // ══════════════════════════════════════════════════════════
          async function deleteOneFile(repo, f) {
            const res = await fetch(API_URL, {
              method: 'DELETE',
              headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ repo, path: f.path, sha: f.sha, deleteFile: true })
+             body: JSON.stringify({ repo, path: f.path, sha: f.sha, deleteFile: true, branch: currentBranch() })
            });
            if (!res.ok) {
              const err = await res.json().catch(() => ({}));
@@ -1476,7 +1794,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          }
 
          window.organizerDeleteOne = async (path) => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
            const f = repoTree.find(x => x.path === path);
            if (!f) return;
@@ -1505,11 +1823,9 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
 
          // Deletes an entire folder (and everything nested inside it) in a
          // SINGLE commit via the backend's Git Trees API route, instead of
-         // looping deleteOneFile() across every file in the folder — this
-         // is why it's much faster than selecting all the folder's files
-         // and using "Delete selected" for repos with many nested files.
+         // looping deleteOneFile() across every file in the folder.
          window.organizerDeleteFolder = async (folder) => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
            const count = repoTree.filter(f => f.path.startsWith(`${folder}/`)).length;
            if (count === 0) return showToast('No files found in that folder', 'bad');
@@ -1526,7 +1842,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              const res = await fetch(API_URL, {
                method: 'DELETE',
                headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ repo, path: folder, deleteFolder: true })
+               body: JSON.stringify({ repo, path: folder, deleteFolder: true, branch: currentBranch() })
              });
              if (!res.ok) {
                const err = await res.json().catch(() => ({}));
@@ -1549,7 +1865,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          };
 
          window.organizerDeleteSelected = async () => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
            if (selectedPaths.size === 0) return showToast('Checkbox at least one file', 'bad');
 
@@ -1588,7 +1904,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          };
 
          window.organizerDeleteAll = async () => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
            if (repoTree.length === 0) return showToast('No files to delete', 'bad');
 
@@ -1632,10 +1948,11 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          };
 
          window.organizerMoveSelected = async () => {
-           const repo = document.getElementById('repoSelect').value;
+           const repo = repoSelect.value;
            const folderInput = document.getElementById('organizerFolderInput');
            const moveBtn = document.getElementById('organizerMoveBtn');
            let folder = (folderInput.value || '').trim().replace(/^\/+|\/+$/g, '');
+           const branch = currentBranch();
 
            if (!folder) return showToast('Enter a folder name first', 'bad');
            if (selectedPaths.size === 0) return showToast('Checkbox at least one file', 'bad');
@@ -1649,43 +1966,42 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
              const leafName = f.path.slice(f.path.lastIndexOf('/') + 1);
              const newPath = `${folder}/${leafName}`;
 
-             if (newPath === f.path) { moved++; continue; } // already there
+             if (newPath === f.path) { moved++; continue; }
 
              organizerStatus.innerHTML = spinnerHtml(`Moving ${leafName} (${moved + failed + 1}/${targets.length})...`);
 
              try {
-               // 1. fetch current content + sha at the old path
-               const getRes = await fetch(`${API_URL}?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(f.path)}`);
+               const getQs = new URLSearchParams({ repo, path: f.path });
+               if (branch) getQs.set('branch', branch);
+               const getRes = await fetch(`${API_URL}?${getQs.toString()}`);
                if (!getRes.ok) throw new Error('read failed');
                const fileData = await getRes.json();
 
-               // 2. check if something already exists at the destination (to get its sha, for overwrite)
                let destSha;
                try {
-                 const destRes = await fetch(`${API_URL}?repo=${encodeURIComponent(repo)}&path=${encodeURIComponent(newPath)}`);
+                 const destQs = new URLSearchParams({ repo, path: newPath });
+                 if (branch) destQs.set('branch', branch);
+                 const destRes = await fetch(`${API_URL}?${destQs.toString()}`);
                  if (destRes.ok) {
                    const destData = await destRes.json();
                    if (destData && destData.sha) destSha = destData.sha;
                  }
                } catch (_) { /* destination doesn't exist yet, that's fine */ }
 
-               // 3. create file at new path
                const putRes = await fetch(API_URL, {
                  method: 'PUT',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ repo, path: newPath, content: fileData.content, sha: destSha })
+                 body: JSON.stringify({ repo, path: newPath, content: fileData.content, sha: destSha, branch, message: `Move ${f.path} to ${newPath}` })
                });
                if (!putRes.ok) throw new Error('write failed');
 
-               // 4. delete the old file
                const delRes = await fetch(API_URL, {
                  method: 'DELETE',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ repo, path: f.path, sha: fileData.sha, deleteFile: true })
+                 body: JSON.stringify({ repo, path: f.path, sha: fileData.sha, deleteFile: true, branch, message: `Remove ${f.path} (moved to ${newPath})` })
                });
                if (!delRes.ok) throw new Error('delete of original failed');
 
-               // update local tree state so re-render reflects the move
                f.path = newPath;
                moved++;
              } catch (err) {
@@ -1712,7 +2028,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
          const downloadZipBtnLabel = document.getElementById('downloadZipBtnLabel');
 
          downloadZipBtn.addEventListener('click', async () => {
-           const repoFull = document.getElementById('repoSelect').value;
+           const repoFull = repoSelect.value;
            if (!repoFull || repoFull.indexOf('/') === -1) {
              return showToast('Select a repository first', 'bad');
            }
@@ -1724,7 +2040,6 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
            const originalLabel = downloadZipBtnLabel.textContent;
 
            try {
-             // Reuse the tree if we already scanned this exact repo, otherwise walk it fresh
              let files;
              if (repoTreeLoadedFor === repoFull && repoTree.length > 0) {
                files = repoTree;
@@ -1735,7 +2050,7 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                repoTree = tmp;
                await walkDir(repoFull, '');
                files = tmp;
-               repoTree = prevTree; // don't disturb organizer state if it wasn't already loaded for this repo
+               repoTree = prevTree;
              }
 
              if (files.length === 0) {
@@ -1751,7 +2066,6 @@ siterifty-domain-verify=b7a27c1c5fc443739da26ef8b4ca2a01
                if (!res.ok) { done++; continue; }
                const data = await res.json();
                if (data && typeof data.content === 'string') {
-                 // GitHub contents API returns base64 (with newlines) for file content
                  zip.file(f.path, data.content.replace(/\n/g, ''), { base64: true });
                }
                done++;
