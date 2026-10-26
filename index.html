@@ -1395,6 +1395,11 @@
              ? 'no files queued'
              : `${fileState.length} file${fileState.length === 1 ? '' : 's'} queued`;
 
+           // Keep the push button's label in sync with what a click will
+           // actually do — plain "Push N files" normally, or "Retry N failed
+           // files" once some files in the queue are done and some aren't.
+           updatePushBtnLabel();
+
            container.innerHTML = fileState.map((f, i) => {
              const chip = chipFor(f.originalName);
              const cardClass = f.status === 'done' ? ' is-done' : f.status === 'error' ? ' is-error' : '';
@@ -1467,14 +1472,43 @@
            btn.disabled = true;
            const originalLabel = label.textContent;
 
-           if (fileState.length >= BULK_COMMIT_THRESHOLD) {
-             await pushBulk(repo, label, originalLabel);
+           // Only push files that aren't already confirmed on GitHub. After a
+           // partial failure, fileState still holds every file — 'done' ones
+           // already landed in an earlier commit, so re-pushing them would
+           // create duplicate/no-op commits. 'error' and 'pending' (never
+           // attempted because an earlier chunk in the same run failed) are
+           // the only ones that still need pushing.
+           const toPush = fileState.filter(f => f.status !== 'done');
+           if (toPush.length === 0) {
+             btn.disabled = false;
+             return showToast('Nothing to push — everything already committed', 'good');
+           }
+
+           if (toPush.length >= BULK_COMMIT_THRESHOLD) {
+             await pushBulk(repo, label, originalLabel, toPush);
            } else {
-             await pushOneByOne(repo, label, originalLabel);
+             await pushOneByOne(repo, label, originalLabel, toPush);
            }
 
            btn.disabled = fileState.length === 0;
          });
+
+         // Keeps the push button honest about what a click will actually do —
+         // "Push 319 files" vs "Retry 12 failed files" after a partial failure.
+         function updatePushBtnLabel() {
+           const label = document.getElementById('pushBtnLabel');
+           if (!label) return;
+           const total = fileState.length;
+           const done = fileState.filter(f => f.status === 'done').length;
+           const remaining = total - done;
+           if (total === 0) {
+             label.textContent = 'Push files';
+           } else if (done === 0) {
+             label.textContent = `Push ${total} file${total === 1 ? '' : 's'}`;
+           } else {
+             label.textContent = `Retry ${remaining} failed file${remaining === 1 ? '' : 's'}`;
+           }
+         }
 
          // Serverless platforms (Vercel etc.) cap the raw request body size
          // (commonly ~4.5MB) regardless of how few files that is — base64
@@ -1507,13 +1541,14 @@
            return chunks;
          }
 
-         async function pushBulk(repo, label, originalLabel) {
-           fileState.forEach(f => f.status = 'pushing');
+         async function pushBulk(repo, label, originalLabel, filesToPush) {
+           filesToPush = filesToPush || fileState;
+           filesToPush.forEach(f => f.status = 'pushing');
            renderQueue();
 
-           const allFiles = fileState.map(f => ({ path: f.path, content: f.content, _ref: f }));
+           const allFiles = filesToPush.map(f => ({ path: f.path, content: f.content, _ref: f }));
            const chunks = chunkFilesBySize(allFiles);
-           const baseMessage = currentCommitMessage(`Add ${fileState.length} files`);
+           const baseMessage = currentCommitMessage(`Add ${filesToPush.length} files`);
            const branch = currentBranch();
 
            let totalCommitted = 0;
@@ -1542,6 +1577,17 @@
                if (!res.ok) {
                  const err = await res.json().catch(() => ({}));
                  console.error(`Bulk commit chunk ${i + 1}/${chunks.length} failed:`, err);
+                 // The backend includes a per-file `details` array (from the
+                 // blob-creation step) even on a whole-chunk failure like
+                 // "No blobs could be created" — surface the first couple of
+                 // actual reasons instead of just the flat summary message,
+                 // since a whole chunk failing almost always has one root
+                 // cause (bad token, rate limit, bad content) repeated per file.
+                 let detailMsg = err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${res.status})`;
+                 if (Array.isArray(err.details) && err.details.length > 0) {
+                   const sample = err.details.slice(0, 3).map(d => `${d.path || '?'}: ${d.error}`).join(' | ');
+                   detailMsg += ` — ${sample}${err.details.length > 3 ? ` (+${err.details.length - 3} more)` : ''}`;
+                 }
                  // Mark this chunk's files as errored, but leave files in
                  // chunks we never reached as 'pending' rather than 'error',
                  // since they were never attempted.
@@ -1550,7 +1596,7 @@
                    chunks[j].forEach(f => f._ref.status = 'pending');
                  }
                  renderQueue();
-                 throw new Error(err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${res.status})`);
+                 throw new Error(detailMsg);
                }
 
                const data = await res.json();
@@ -1566,11 +1612,18 @@
 
              if (allErrors.length === 0) {
                showToast(`Pushed ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} to GitHub in ${chunks.length} commit${chunks.length === 1 ? '' : 's'}`, 'good');
-               fileState = [];
+               // Only drop files that actually landed — anything still
+               // marked 'error' (shouldn't happen when allErrors is empty,
+               // but kept for safety) stays in the queue for a retry.
+               fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              } else {
                console.error('Per-file bulk commit errors:', allErrors);
                showToast(`${totalCommitted} committed, ${allErrors.length} failed — check status badges`, 'bad');
+               // Drop the ones confirmed done; keep failed/pending ones in
+               // the queue so the next click only retries what's left.
+               fileState = fileState.filter(f => f.status !== 'done');
+               renderQueue();
              }
            } catch (err) {
              label.textContent = originalLabel;
@@ -1578,7 +1631,11 @@
              const progressNote = totalCommitted > 0
                ? ` ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed before this failure — already on GitHub.`
                : '';
-             showPersistentError('Bulk push failed', (err.message || 'Unknown error — see browser console for details.') + progressNote);
+             // Drop committed files from the queue; keep error/pending ones
+             // so clicking push again only retries what didn't make it.
+             fileState = fileState.filter(f => f.status !== 'done');
+             renderQueue();
+             showPersistentError('Bulk push failed', (err.message || 'Unknown error — see browser console for details.') + progressNote + ' Click push again to retry only the files that failed.');
            }
          }
 
@@ -1603,13 +1660,14 @@
              </div>`;
          }
 
-         async function pushOneByOne(repo, label, originalLabel) {
+         async function pushOneByOne(repo, label, originalLabel, filesToPush) {
+           filesToPush = filesToPush || fileState;
            let successCount = 0;
            let failCount = 0;
            const branch = currentBranch();
            const message = currentCommitMessage(null);
 
-           for (const f of fileState) {
+           for (const f of filesToPush) {
              f.status = 'pushing';
              renderQueue();
              label.textContent = `Pushing ${f.originalName}...`;
@@ -1647,12 +1705,15 @@
 
            label.textContent = originalLabel;
 
+           // Drop everything that actually landed; keep failures in the
+           // queue so the next push click only retries what's left.
+           fileState = fileState.filter(f => f.status !== 'done');
+           renderQueue();
+
            if (failCount === 0) {
              showToast(`Pushed ${successCount} file${successCount === 1 ? '' : 's'} to GitHub`, 'good');
-             fileState = [];
-             renderQueue();
            } else {
-             showToast(`${successCount} pushed, ${failCount} failed — check status badges`, 'bad');
+             showToast(`${successCount} pushed, ${failCount} failed — check status badges. Click push again to retry failed files.`, 'bad');
            }
          }
 
