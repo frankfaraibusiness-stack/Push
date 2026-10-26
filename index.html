@@ -1556,6 +1556,13 @@
 
            try {
              for (let i = 0; i < chunks.length; i++) {
+               // Small cooldown between chunks (not before the first) so
+               // back-to-back commits don't burst into GitHub's secondary
+               // rate limit the way 139 files in ~2 chunks did previously.
+               if (i > 0) {
+                 label.textContent = 'Pausing briefly to avoid GitHub rate limits...';
+                 await new Promise(r => setTimeout(r, 1500));
+               }
                const chunk = chunks[i];
                const chunkLabel = chunks.length > 1
                  ? `Pushing chunk ${i + 1}/${chunks.length} (${chunk.length} files)...`
@@ -1619,7 +1626,15 @@
                renderQueue();
              } else {
                console.error('Per-file bulk commit errors:', allErrors);
-               showToast(`${totalCommitted} committed, ${allErrors.length} failed — check status badges`, 'bad');
+               const doneFiles = filesToPush.filter(f => f.status === 'done').map(f => f.path);
+               const failedFiles = filesToPush.filter(f => f.status === 'error').map(f => f.path);
+               const pendingFiles = filesToPush.filter(f => f.status === 'pending').map(f => f.path);
+               showPushResultModal({
+                 title: 'Bulk push partially failed',
+                 summary: `${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed, ${allErrors.length} failed. Click push again to retry only the failed files.`,
+                 perFileErrors: allErrors,
+                 doneFiles, failedFiles, pendingFiles
+               });
                // Drop the ones confirmed done; keep failed/pending ones in
                // the queue so the next click only retries what's left.
                fileState = fileState.filter(f => f.status !== 'done');
@@ -1628,36 +1643,120 @@
            } catch (err) {
              label.textContent = originalLabel;
              console.error('Bulk push failed:', err);
-             const progressNote = totalCommitted > 0
-               ? ` ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed before this failure — already on GitHub.`
-               : '';
+             const doneFiles = filesToPush.filter(f => f.status === 'done').map(f => f.path);
+             const failedFiles = filesToPush.filter(f => f.status === 'error').map(f => f.path);
+             const pendingFiles = filesToPush.filter(f => f.status === 'pending').map(f => f.path);
+             showPushResultModal({
+               title: 'Bulk push failed',
+               summary: (err.message || 'Unknown error — see browser console for details.') +
+                 (totalCommitted > 0 ? ` ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed before this failure — already on GitHub.` : '') +
+                 ' Click push again to retry only the files that failed.',
+               perFileErrors: [],
+               doneFiles, failedFiles, pendingFiles
+             });
              // Drop committed files from the queue; keep error/pending ones
              // so clicking push again only retries what didn't make it.
              fileState = fileState.filter(f => f.status !== 'done');
              renderQueue();
-             showPersistentError('Bulk push failed', (err.message || 'Unknown error — see browser console for details.') + progressNote + ' Click push again to retry only the files that failed.');
            }
          }
 
-         // Toasts auto-dismiss, which makes them easy to miss on a failed
-         // bulk commit. For real errors we also show a persistent banner
-         // the user has to dismiss, with the full message visible/selectable.
-         function showPersistentError(title, detail) {
-           let banner = document.getElementById('persistentErrorBanner');
-           if (!banner) {
-             banner = document.createElement('div');
-             banner.id = 'persistentErrorBanner';
-             banner.style.cssText = 'position:fixed; bottom:16px; left:16px; right:16px; max-width:640px; margin:0 auto; background:var(--bad-bg, #3a1414); border:1px solid var(--bad, #e5484d); color:var(--text, #fff); padding:12px 14px; border-radius:8px; z-index:9999; font-size:13px; line-height:1.4;';
-             document.body.appendChild(banner);
-           }
-           banner.innerHTML = `
-             <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-               <div>
-                 <strong>${escapeHtml(title)}</strong>
-                 <div style="margin-top:4px; opacity:0.9; user-select:text;">${escapeHtml(detail)}</div>
+         // Full-screen overlay modal for push results. Used for both outright
+         // failures (whole chunk/request errored) and partial failures (some
+         // files errored, others committed fine) so there's one consistent
+         // place to review what happened, with a sticky header (title +
+         // copy + close always reachable even if the error/file list is
+         // long), and file lists split into done / failed / pending so
+         // successful pushes aren't mixed in with what still needs attention.
+         let lastPushResultText = '';
+
+         function showPushResultModal({ title, summary, perFileErrors, doneFiles, failedFiles, pendingFiles }) {
+           let overlay = document.getElementById('pushResultOverlay');
+           if (overlay) overlay.remove();
+
+           const errorLines = (perFileErrors || []).map(e => `${e.path}: ${e.error}`);
+           lastPushResultText = [title, summary, '', ...errorLines].join('\n');
+
+           const fileRow = (path, status) => {
+             const cls = status === 'done' ? 'pr-row-done' : status === 'failed' ? 'pr-row-failed' : 'pr-row-pending';
+             const icon = status === 'done' ? '✓' : status === 'failed' ? '✕' : '…';
+             return `<div class="pr-row ${cls}"><span class="pr-row-icon">${icon}</span><span class="pr-row-path">${escapeHtml(path)}</span></div>`;
+           };
+
+           const section = (label, files, status) => {
+             if (!files || files.length === 0) return '';
+             return `
+               <div class="pr-section">
+                 <div class="pr-section-head">${label} (${files.length})</div>
+                 <div class="pr-section-body">${files.map(p => fileRow(p, status)).join('')}</div>
+               </div>`;
+           };
+
+           overlay = document.createElement('div');
+           overlay.id = 'pushResultOverlay';
+           overlay.className = 'pr-overlay';
+           overlay.innerHTML = `
+             <div class="pr-modal">
+               <div class="pr-header">
+                 <div class="pr-header-title">${escapeHtml(title)}</div>
+                 <div class="pr-header-actions">
+                   <button type="button" class="pr-btn" id="prCopyBtn">Copy error</button>
+                   <button type="button" class="pr-btn pr-btn-close" id="prCloseBtn" aria-label="Close">&times;</button>
+                 </div>
                </div>
-               <button type="button" onclick="this.closest('#persistentErrorBanner').remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:16px; line-height:1; flex-shrink:0;">&times;</button>
+               <div class="pr-body">
+                 <div class="pr-summary">${escapeHtml(summary)}</div>
+                 ${errorLines.length ? `<div class="pr-error-block">${errorLines.map(l => `<div class="pr-error-line">${escapeHtml(l)}</div>`).join('')}</div>` : ''}
+                 ${section('Failed', failedFiles, 'failed')}
+                 ${section('Pending (not yet attempted)', pendingFiles, 'pending')}
+                 ${section('Pushed successfully', doneFiles, 'done')}
+               </div>
              </div>`;
+
+           if (!document.getElementById('pr-overlay-styles')) {
+             const style = document.createElement('style');
+             style.id = 'pr-overlay-styles';
+             style.textContent = `
+               .pr-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; display:flex; align-items:flex-end; justify-content:center; }
+               @media (min-width:640px) { .pr-overlay { align-items:center; } }
+               .pr-modal { background:var(--bg, #15161a); color:var(--text, #fff); width:100%; max-width:640px; max-height:85vh; border-radius:12px 12px 0 0; display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--border, #2a2b30); }
+               @media (min-width:640px) { .pr-modal { border-radius:12px; max-height:80vh; } }
+               .pr-header { position:sticky; top:0; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; background:var(--bad-bg, #3a1414); border-bottom:1px solid var(--bad, #e5484d); flex-shrink:0; }
+               .pr-header-title { font-weight:600; font-size:15px; }
+               .pr-header-actions { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+               .pr-btn { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:inherit; border-radius:6px; padding:6px 10px; font-size:12px; cursor:pointer; }
+               .pr-btn:hover { background:rgba(255,255,255,0.18); }
+               .pr-btn-close { font-size:18px; line-height:1; padding:4px 9px; }
+               .pr-body { overflow-y:auto; padding:16px; }
+               .pr-summary { font-size:13px; opacity:0.9; margin-bottom:12px; }
+               .pr-error-block { background:rgba(0,0,0,0.25); border:1px solid var(--border, #2a2b30); border-radius:8px; padding:10px 12px; margin-bottom:16px; max-height:160px; overflow-y:auto; }
+               .pr-error-line { font-family:ui-monospace,monospace; font-size:11.5px; line-height:1.5; opacity:0.85; user-select:text; word-break:break-word; }
+               .pr-section { margin-bottom:14px; }
+               .pr-section-head { font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; opacity:0.6; margin-bottom:6px; }
+               .pr-section-body { border:1px solid var(--border, #2a2b30); border-radius:8px; overflow:hidden; }
+               .pr-row { display:flex; align-items:center; gap:8px; padding:7px 10px; font-size:12.5px; font-family:ui-monospace,monospace; border-bottom:1px solid var(--border, #23242a); }
+               .pr-row:last-child { border-bottom:none; }
+               .pr-row-icon { flex-shrink:0; width:14px; text-align:center; }
+               .pr-row-path { word-break:break-all; }
+               .pr-row-done { opacity:0.55; }
+               .pr-row-done .pr-row-icon { color:#3ecf6a; }
+               .pr-row-failed .pr-row-icon { color:#e5484d; }
+               .pr-row-pending .pr-row-icon { color:#f2b84b; }
+             `;
+             document.head.appendChild(style);
+           }
+
+           document.body.appendChild(overlay);
+           document.getElementById('prCloseBtn').onclick = () => overlay.remove();
+           overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+           document.getElementById('prCopyBtn').onclick = async () => {
+             try {
+               await navigator.clipboard.writeText(lastPushResultText);
+               showToast('Error copied to clipboard', 'good');
+             } catch (_) {
+               showToast('Could not copy — select the text manually', 'bad');
+             }
+           };
          }
 
          async function pushOneByOne(repo, label, originalLabel, filesToPush) {
