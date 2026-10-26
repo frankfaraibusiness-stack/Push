@@ -45,7 +45,131 @@ export default async function handler(req, res) {
         }
     }
 
-    const { repo, path, content, sha, deleteRepo, deleteFile } = req.method === 'GET' ? req.query : req.body;
+    // NEW: Bulk upload — push many files to a repo in ONE commit instead of
+    // one PUT (contents API) per file. This is the counterpart to
+    // deleteFolder below: it uses the Git Data API to create a blob per
+    // file (in parallel, capped concurrency), build a single tree on top
+    // of the current HEAD, make one commit, and fast-forward the branch —
+    // so uploading 1,000 files costs one commit, not 1,000.
+    if (req.method === 'POST' && req.body && req.body.bulkCommit) {
+        const { repo: bcRepo, files, message } = req.body;
+        if (!bcRepo || !Array.isArray(files) || files.length === 0) {
+            return res.status(400).json({ error: "Missing required parameters: repo or files." });
+        }
+        // Basic sanity cap — GitHub blobs max out at 100MB each and a single
+        // request body this large would be impractical anyway; chunk on the
+        // client if you have truly massive payloads.
+        if (files.length > 5000) {
+            return res.status(413).json({ error: "Too many files in one bulk commit (max 5000)." });
+        }
+
+        try {
+            const ghHeaders = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+
+            // 1. Resolve default branch, current commit, and base tree sha.
+            const repoInfoRes = await fetch(`https://api.github.com/repos/${bcRepo}`, { headers: ghHeaders });
+            if (!repoInfoRes.ok) return res.status(repoInfoRes.status).json({ error: "Could not read repository info." });
+            const repoInfo = await repoInfoRes.json();
+            const branch = repoInfo.default_branch;
+
+            const refRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/ref/heads/${branch}`, { headers: ghHeaders });
+            if (!refRes.ok) return res.status(refRes.status).json({ error: "Could not resolve branch ref." });
+            const refData = await refRes.json();
+            const baseCommitSha = refData.object.sha;
+
+            const commitRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/commits/${baseCommitSha}`, { headers: ghHeaders });
+            if (!commitRes.ok) return res.status(commitRes.status).json({ error: "Could not read base commit." });
+            const commitData = await commitRes.json();
+            const baseTreeSha = commitData.tree.sha;
+
+            // 2. Create a blob for every file. Run with capped concurrency
+            //    (10 at a time) rather than fully serial (slow) or fully
+            //    parallel (risks hitting GitHub's secondary rate limits).
+            const CONCURRENCY = 10;
+            const blobResults = new Array(files.length);
+            const errors = [];
+            let nextIndex = 0;
+
+            async function worker() {
+                while (nextIndex < files.length) {
+                    const i = nextIndex++;
+                    const f = files[i];
+                    if (!f || !f.path || typeof f.content !== 'string') {
+                        errors.push({ path: f && f.path, error: 'Missing path or content' });
+                        continue;
+                    }
+                    try {
+                        const blobRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/blobs`, {
+                            method: 'POST',
+                            headers: ghHeaders,
+                            body: JSON.stringify({ content: f.content, encoding: 'base64' })
+                        });
+                        if (!blobRes.ok) {
+                            errors.push({ path: f.path, error: `Blob creation failed (${blobRes.status})` });
+                            continue;
+                        }
+                        const blobData = await blobRes.json();
+                        blobResults[i] = { path: f.path, mode: '100644', type: 'blob', sha: blobData.sha };
+                    } catch (err) {
+                        errors.push({ path: f.path, error: err.message });
+                    }
+                }
+            }
+            await Promise.all(Array.from({ length: Math.min(CONCURRENCY, files.length) }, worker));
+
+            const treeEntries = blobResults.filter(Boolean);
+            if (treeEntries.length === 0) {
+                return res.status(422).json({ error: "No blobs could be created.", details: errors });
+            }
+
+            // 3. Create one new tree on top of the current tree (base_tree
+            //    merges these paths in / overwrites existing ones; anything
+            //    not mentioned stays untouched).
+            const newTreeRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/trees`, {
+                method: 'POST',
+                headers: ghHeaders,
+                body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries })
+            });
+            if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: "Could not create new tree." });
+            const newTree = await newTreeRes.json();
+
+            // 4. One commit for the whole batch.
+            const newCommitRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/commits`, {
+                method: 'POST',
+                headers: ghHeaders,
+                body: JSON.stringify({
+                    message: message || `Add ${treeEntries.length} file${treeEntries.length === 1 ? '' : 's'}`,
+                    tree: newTree.sha,
+                    parents: [baseCommitSha]
+                })
+            });
+            if (!newCommitRes.ok) return res.status(newCommitRes.status).json({ error: "Could not create new commit." });
+            const newCommit = await newCommitRes.json();
+
+            // 5. Fast-forward the branch ref.
+            const updateRefRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/refs/heads/${branch}`, {
+                method: 'PATCH',
+                headers: ghHeaders,
+                body: JSON.stringify({ sha: newCommit.sha })
+            });
+            if (!updateRefRes.ok) return res.status(updateRefRes.status).json({ error: "Could not update branch ref." });
+
+            return res.status(200).json({
+                success: true,
+                committedCount: treeEntries.length,
+                failedCount: errors.length,
+                errors,
+                commitSha: newCommit.sha
+            });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    const { repo, path, content, sha, deleteRepo, deleteFile, deleteFolder } = req.method === 'GET' ? req.query : req.body;
 
     // NEW: Delete an entire repository
     if (req.method === 'DELETE' && deleteRepo) {
@@ -56,6 +180,106 @@ export default async function handler(req, res) {
             });
             if (!response.ok) return res.status(response.status).json({ error: "Could not delete repository." });
             return res.status(200).json({ success: true });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    // NEW: Delete an entire folder from a repository in ONE commit.
+    // Instead of looping over every file inside the folder and firing a
+    // separate contents-API DELETE (one commit per file, slow for repos
+    // with many nested files), this walks the repo's current tree via the
+    // Git Data API, drops every blob under the folder prefix, and writes
+    // a single new tree + commit that removes them all at once.
+    if (req.method === 'DELETE' && deleteFolder) {
+        if (!repo || !path) {
+            return res.status(400).json({ error: "Missing required parameters: repo or path." });
+        }
+        try {
+            const ghHeaders = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+            const folderPrefix = path.endsWith('/') ? path : `${path}/`;
+
+            // 1. Find the repo's default branch so we know which ref to update.
+            const repoInfoRes = await fetch(`https://api.github.com/repos/${repo}`, { headers: ghHeaders });
+            if (!repoInfoRes.ok) return res.status(repoInfoRes.status).json({ error: "Could not read repository info." });
+            const repoInfo = await repoInfoRes.json();
+            const branch = repoInfo.default_branch;
+
+            // 2. Resolve that branch to its current commit + tree sha.
+            const refRes = await fetch(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, { headers: ghHeaders });
+            if (!refRes.ok) return res.status(refRes.status).json({ error: "Could not resolve branch ref." });
+            const refData = await refRes.json();
+            const commitSha = refData.object.sha;
+
+            const commitRes = await fetch(`https://api.github.com/repos/${repo}/git/commits/${commitSha}`, { headers: ghHeaders });
+            if (!commitRes.ok) return res.status(commitRes.status).json({ error: "Could not read base commit." });
+            const commitData = await commitRes.json();
+            const baseTreeSha = commitData.tree.sha;
+
+            // 3. Get the FULL recursive tree so we can see every file under the folder.
+            const treeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees/${baseTreeSha}?recursive=1`, { headers: ghHeaders });
+            if (!treeRes.ok) return res.status(treeRes.status).json({ error: "Could not read repository tree." });
+            const treeData = await treeRes.json();
+
+            if (treeData.truncated) {
+                return res.status(422).json({ error: "Repository tree is too large to process in one request." });
+            }
+
+            const removed = treeData.tree.filter(entry => entry.type === 'blob' && entry.path.startsWith(folderPrefix));
+            if (removed.length === 0) {
+                return res.status(404).json({ error: "No files found under that folder." });
+            }
+
+            // 4. Build the new tree: every blob NOT under the folder, unchanged.
+            //    (Git trees prune empty directories automatically — we don't
+            //    need to explicitly delete the now-empty tree entries.)
+            const newTreeEntries = treeData.tree
+                .filter(entry => entry.type === 'blob' && !entry.path.startsWith(folderPrefix))
+                .map(entry => ({
+                    path: entry.path,
+                    mode: entry.mode,
+                    type: entry.type,
+                    sha: entry.sha
+                }));
+
+            const newTreeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees`, {
+                method: 'POST',
+                headers: ghHeaders,
+                body: JSON.stringify({ tree: newTreeEntries })
+            });
+            if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: "Could not create new tree." });
+            const newTree = await newTreeRes.json();
+
+            // 5. Commit the new tree on top of the current commit.
+            const newCommitRes = await fetch(`https://api.github.com/repos/${repo}/git/commits`, {
+                method: 'POST',
+                headers: ghHeaders,
+                body: JSON.stringify({
+                    message: `Delete folder ${path} (${removed.length} file${removed.length === 1 ? '' : 's'})`,
+                    tree: newTree.sha,
+                    parents: [commitSha]
+                })
+            });
+            if (!newCommitRes.ok) return res.status(newCommitRes.status).json({ error: "Could not create new commit." });
+            const newCommit = await newCommitRes.json();
+
+            // 6. Fast-forward the branch ref to the new commit.
+            const updateRefRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/heads/${branch}`, {
+                method: 'PATCH',
+                headers: ghHeaders,
+                body: JSON.stringify({ sha: newCommit.sha })
+            });
+            if (!updateRefRes.ok) return res.status(updateRefRes.status).json({ error: "Could not update branch ref." });
+
+            return res.status(200).json({
+                success: true,
+                deletedCount: removed.length,
+                deletedPaths: removed.map(e => e.path),
+                commitSha: newCommit.sha
+            });
         } catch (err) {
             return res.status(500).json({ error: err.message });
         }
