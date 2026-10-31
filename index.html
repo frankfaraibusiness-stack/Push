@@ -1511,88 +1511,133 @@
            }
          }
 
-         // Always push everything in ONE request = ONE commit, regardless of
-         // file count (up to the 1000-file cap below). No client-side
-         // chunking, no multi-commit splitting, no inter-chunk cooldown —
-         // the backend's own blob-creation concurrency (see edit-file.js)
-         // is what makes a single commit of many files fast.
-         const MAX_FILES_PER_COMMIT = 1000;
+         // Serverless platforms (Vercel etc.) cap the raw request body size
+         // (commonly ~4.5MB) regardless of how few files that is — base64
+         // content inflates size ~33% over the original bytes, so a few
+         // hundred real-world files can blow past that limit even though
+         // they're nowhere near the 5000-file count cap, and show up as an
+         // opaque HTTP 413 from the platform itself (before our code even
+         // runs). So we chunk by estimated payload size, not just count,
+         // and push each chunk as its own sequential commit.
+         const MAX_CHUNK_BYTES = 3 * 1024 * 1024; // stay safely under ~4.5MB raw body limits
+         const MAX_CHUNK_FILES = 100; // hard ceiling regardless of size, so a chunk of many tiny files still stays a reasonably-sized commit
+
+         function chunkFilesBySize(files) {
+           const chunks = [];
+           let current = [];
+           let currentBytes = 0;
+           for (const f of files) {
+             // base64 string length ≈ actual byte size already (4/3 inflation
+             // is baked into f.content.length), plus a little JSON overhead.
+             const approxBytes = f.content.length + f.path.length + 64;
+             if (current.length > 0 && (currentBytes + approxBytes > MAX_CHUNK_BYTES || current.length >= MAX_CHUNK_FILES)) {
+               chunks.push(current);
+               current = [];
+               currentBytes = 0;
+             }
+             current.push(f);
+             currentBytes += approxBytes;
+           }
+           if (current.length > 0) chunks.push(current);
+           return chunks;
+         }
 
          async function pushBulk(repo, label, originalLabel, filesToPush) {
            filesToPush = filesToPush || fileState;
-
-           if (filesToPush.length > MAX_FILES_PER_COMMIT) {
-             return showToast(`Too many files for one commit (max ${MAX_FILES_PER_COMMIT}, got ${filesToPush.length}).`, 'bad');
-           }
-
            filesToPush.forEach(f => f.status = 'pushing');
            renderQueue();
 
            const allFiles = filesToPush.map(f => ({ path: f.path, content: f.content, _ref: f }));
-           const message = currentCommitMessage(`Add ${filesToPush.length} files`);
+           const chunks = chunkFilesBySize(allFiles);
+           const baseMessage = currentCommitMessage(`Add ${filesToPush.length} files`);
            const branch = currentBranch();
 
            let totalCommitted = 0;
-           let allErrors = [];
-
-           label.textContent = `Pushing ${allFiles.length} file${allFiles.length === 1 ? '' : 's'} in 1 commit...`;
+           const allErrors = [];
 
            try {
-             const res = await fetch(API_URL, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                 bulkCommit: true,
-                 repo,
-                 branch,
-                 files: allFiles.map(f => ({ path: f.path, content: f.content })),
-                 message
-               })
-             });
-
-             if (!res.ok) {
-               const err = await res.json().catch(() => ({}));
-               console.error('Bulk commit failed:', err);
-               // The backend includes a per-file `details` array (from the
-               // blob-creation step) even on a whole-request failure like
-               // "No blobs could be created" — surface the first couple of
-               // actual reasons instead of just the flat summary message,
-               // since a whole-request failure almost always has one root
-               // cause (bad token, rate limit, bad content) repeated per file.
-               let detailMsg = err.error || `Push failed (HTTP ${res.status})`;
-               if (Array.isArray(err.details) && err.details.length > 0) {
-                 const sample = err.details.slice(0, 3).map(d => `${d.path || '?'}: ${d.error}`).join(' | ');
-                 detailMsg += ` — ${sample}${err.details.length > 3 ? ` (+${err.details.length - 3} more)` : ''}`;
+             for (let i = 0; i < chunks.length; i++) {
+               // Small cooldown between chunks (not before the first) so
+               // back-to-back commits don't burst into GitHub's secondary
+               // rate limit the way 139 files in ~2 chunks did previously.
+               if (i > 0) {
+                 label.textContent = 'Pausing briefly to avoid GitHub rate limits...';
+                 await new Promise(r => setTimeout(r, 1500));
                }
-               allFiles.forEach(f => f._ref.status = 'error');
+               const chunk = chunks[i];
+               const chunkLabel = chunks.length > 1
+                 ? `Pushing chunk ${i + 1}/${chunks.length} (${chunk.length} files)...`
+                 : `Pushing ${chunk.length} files in 1 commit...`;
+               label.textContent = chunkLabel;
+
+               const res = await fetch(API_URL, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({
+                   bulkCommit: true,
+                   repo,
+                   branch,
+                   files: chunk.map(f => ({ path: f.path, content: f.content })),
+                   message: chunks.length > 1 ? `${baseMessage} (part ${i + 1}/${chunks.length})` : baseMessage
+                 })
+               });
+
+               if (!res.ok) {
+                 const err = await res.json().catch(() => ({}));
+                 console.error(`Bulk commit chunk ${i + 1}/${chunks.length} failed:`, err);
+                 // The backend includes a per-file `details` array (from the
+                 // blob-creation step) even on a whole-chunk failure like
+                 // "No blobs could be created" — surface the first couple of
+                 // actual reasons instead of just the flat summary message,
+                 // since a whole chunk failing almost always has one root
+                 // cause (bad token, rate limit, bad content) repeated per file.
+                 let detailMsg = err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${res.status})`;
+                 if (Array.isArray(err.details) && err.details.length > 0) {
+                   const sample = err.details.slice(0, 3).map(d => `${d.path || '?'}: ${d.error}`).join(' | ');
+                   detailMsg += ` — ${sample}${err.details.length > 3 ? ` (+${err.details.length - 3} more)` : ''}`;
+                 }
+                 // Mark this chunk's files as errored, but leave files in
+                 // chunks we never reached as 'pending' rather than 'error',
+                 // since they were never attempted.
+                 chunk.forEach(f => f._ref.status = 'error');
+                 for (let j = i + 1; j < chunks.length; j++) {
+                   chunks[j].forEach(f => f._ref.status = 'pending');
+                 }
+                 renderQueue();
+                 throw new Error(detailMsg);
+               }
+
+               const data = await res.json();
+               const failedPaths = new Set((data.errors || []).map(e => e.path));
+               chunk.forEach(f => { f._ref.status = failedPaths.has(f.path) ? 'error' : 'done'; });
                renderQueue();
-               throw new Error(detailMsg);
+
+               totalCommitted += data.committedCount || 0;
+               if (data.errors && data.errors.length) allErrors.push(...data.errors);
              }
-
-             const data = await res.json();
-             const failedPaths = new Set((data.errors || []).map(e => e.path));
-             allFiles.forEach(f => { f._ref.status = failedPaths.has(f.path) ? 'error' : 'done'; });
-             renderQueue();
-
-             totalCommitted = data.committedCount || 0;
-             if (data.errors && data.errors.length) allErrors = data.errors;
 
              label.textContent = originalLabel;
 
              if (allErrors.length === 0) {
-               showToast(`Pushed ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} to GitHub in 1 commit`, 'good');
+               showToast(`Pushed ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} to GitHub in ${chunks.length} commit${chunks.length === 1 ? '' : 's'}`, 'good');
+               // Only drop files that actually landed — anything still
+               // marked 'error' (shouldn't happen when allErrors is empty,
+               // but kept for safety) stays in the queue for a retry.
                fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              } else {
                console.error('Per-file bulk commit errors:', allErrors);
                const doneFiles = filesToPush.filter(f => f.status === 'done').map(f => f.path);
                const failedFiles = filesToPush.filter(f => f.status === 'error').map(f => f.path);
+               const pendingFiles = filesToPush.filter(f => f.status === 'pending').map(f => f.path);
                showPushResultModal({
-                 title: 'Push partially failed',
+                 title: 'Bulk push partially failed',
                  summary: `${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed, ${allErrors.length} failed. Click push again to retry only the failed files.`,
                  perFileErrors: allErrors,
-                 doneFiles, failedFiles, pendingFiles: []
+                 doneFiles, failedFiles, pendingFiles
                });
+               // Drop the ones confirmed done; keep failed/pending ones in
+               // the queue so the next click only retries what's left.
                fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              }
@@ -1601,14 +1646,17 @@
              console.error('Bulk push failed:', err);
              const doneFiles = filesToPush.filter(f => f.status === 'done').map(f => f.path);
              const failedFiles = filesToPush.filter(f => f.status === 'error').map(f => f.path);
+             const pendingFiles = filesToPush.filter(f => f.status === 'pending').map(f => f.path);
              showPushResultModal({
-               title: 'Push failed',
+               title: 'Bulk push failed',
                summary: (err.message || 'Unknown error — see browser console for details.') +
                  (totalCommitted > 0 ? ` ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed before this failure — already on GitHub.` : '') +
                  ' Click push again to retry only the files that failed.',
                perFileErrors: [],
-               doneFiles, failedFiles, pendingFiles: []
+               doneFiles, failedFiles, pendingFiles
              });
+             // Drop committed files from the queue; keep error/pending ones
+             // so clicking push again only retries what didn't make it.
              fileState = fileState.filter(f => f.status !== 'done');
              renderQueue();
            }
