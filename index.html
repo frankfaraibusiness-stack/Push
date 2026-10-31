@@ -2106,42 +2106,50 @@
            }
          };
 
+         // Deletes a set of paths in a SINGLE commit via the backend's Git
+         // Trees API route (same approach as organizerDeleteFolder above),
+         // instead of looping deleteOneFile() once per path.
+         async function deleteManyInOneCommit(repo, paths) {
+           const res = await fetch(API_URL, {
+             method: 'DELETE',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ repo, deletePaths: paths, branch: currentBranch() })
+           });
+           if (!res.ok) {
+             const err = await res.json().catch(() => ({}));
+             throw new Error(err.error || 'Failed to delete files');
+           }
+           return res.json();
+         }
+
          window.organizerDeleteSelected = async () => {
            const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
            if (selectedPaths.size === 0) return showToast('Checkbox at least one file', 'bad');
 
            const targets = repoTree.filter(f => selectedPaths.has(f.path));
-           if (!confirm(`Delete ${targets.length} selected file${targets.length === 1 ? '' : 's'}? This cannot be undone.`)) return;
+           if (!confirm(`Delete ${targets.length} selected file${targets.length === 1 ? '' : 's'} in one commit? This cannot be undone.`)) return;
 
            const delBtn = document.getElementById('organizerDeleteSelectedBtn');
            const delAllBtn = document.getElementById('organizerDeleteAllBtn');
            if (delBtn) delBtn.disabled = true;
            if (delAllBtn) delAllBtn.disabled = true;
            organizerStatus.style.display = 'flex';
+           organizerStatus.innerHTML = spinnerHtml(`Deleting ${targets.length} file${targets.length === 1 ? '' : 's'} (1 commit)...`);
 
-           let deleted = 0, failed = 0;
-           const deletedPaths = new Set();
-           for (const f of targets) {
-             organizerStatus.innerHTML = spinnerHtml(`Deleting ${f.path} (${deleted + failed + 1}/${targets.length})...`);
-             try {
-               await deleteOneFile(repo, f);
-               deletedPaths.add(f.path);
-               deleted++;
-             } catch (err) {
-               failed++;
-             }
-           }
-
-           repoTree = repoTree.filter(f => !deletedPaths.has(f.path));
-           organizerStatus.style.display = 'none';
-           selectedPaths = new Set();
-           renderOrganizer();
-
-           if (failed === 0) {
-             showToast(`Deleted ${deleted} file${deleted === 1 ? '' : 's'}`, 'good');
-           } else {
-             showToast(`${deleted} deleted, ${failed} failed`, 'bad');
+           try {
+             const data = await deleteManyInOneCommit(repo, targets.map(f => f.path));
+             const deletedSet = new Set(data.deletedPaths || []);
+             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
+             for (const p of deletedSet) selectedPaths.delete(p);
+             renderOrganizer();
+             showToast(`Deleted ${data.deletedCount ?? targets.length} file${(data.deletedCount ?? targets.length) === 1 ? '' : 's'} (1 commit)`, 'good');
+           } catch (err) {
+             showToast(err.message || 'Delete failed', 'bad');
+           } finally {
+             organizerStatus.style.display = 'none';
+             if (delBtn) delBtn.disabled = false;
+             if (delAllBtn) delAllBtn.disabled = false;
            }
          };
 
@@ -2151,41 +2159,41 @@
            if (repoTree.length === 0) return showToast('No files to delete', 'bad');
 
            const confirmText = `delete all ${repoTree.length}`;
-           const typed = prompt(`This will permanently delete ALL ${repoTree.length} files in ${repo}.\n\nType "${confirmText}" to confirm:`);
+           const typed = prompt(`This will permanently delete ALL ${repoTree.length} files in ${repo} in a single commit.\n\nType "${confirmText}" to confirm:`);
            if (typed !== confirmText) {
              if (typed !== null) showToast('Confirmation text did not match — cancelled', 'bad');
              return;
            }
 
-           const targets = [...repoTree];
            const delBtn = document.getElementById('organizerDeleteSelectedBtn');
            const delAllBtn = document.getElementById('organizerDeleteAllBtn');
            if (delBtn) delBtn.disabled = true;
            if (delAllBtn) delAllBtn.disabled = true;
            organizerStatus.style.display = 'flex';
+           organizerStatus.innerHTML = spinnerHtml(`Deleting all ${repoTree.length} files (1 commit)...`);
 
-           let deleted = 0, failed = 0;
-           const stillHere = [];
-           for (const f of targets) {
-             organizerStatus.innerHTML = spinnerHtml(`Deleting ${f.path} (${deleted + failed + 1}/${targets.length})...`);
-             try {
-               await deleteOneFile(repo, f);
-               deleted++;
-             } catch (err) {
-               failed++;
-               stillHere.push(f);
+           try {
+             const res = await fetch(API_URL, {
+               method: 'DELETE',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ repo, deleteAll: true, branch: currentBranch() })
+             });
+             if (!res.ok) {
+               const err = await res.json().catch(() => ({}));
+               throw new Error(err.error || 'Failed to delete all files');
              }
-           }
-
-           repoTree = stillHere;
-           organizerStatus.style.display = 'none';
-           selectedPaths = new Set();
-           renderOrganizer();
-
-           if (failed === 0) {
-             showToast(`Deleted all ${deleted} files`, 'good');
-           } else {
-             showToast(`${deleted} deleted, ${failed} failed`, 'bad');
+             const data = await res.json();
+             const deletedSet = new Set(data.deletedPaths || []);
+             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
+             selectedPaths = new Set();
+             renderOrganizer();
+             showToast(`Deleted all ${data.deletedCount ?? deletedSet.size} files (1 commit)`, 'good');
+           } catch (err) {
+             showToast(err.message || 'Delete all failed', 'bad');
+           } finally {
+             organizerStatus.style.display = 'none';
+             if (delBtn) delBtn.disabled = false;
+             if (delAllBtn) delAllBtn.disabled = false;
            }
          };
 
