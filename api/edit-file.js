@@ -156,10 +156,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "Missing required parameters: repo or files." });
         }
         // Basic sanity cap — GitHub blobs max out at 100MB each and a single
-        // request body this large would be impractical anyway; chunk on the
-        // client if you have truly massive payloads.
-        if (files.length > 5000) {
-            return res.status(413).json({ error: "Too many files in one bulk commit (max 5000)." });
+        // request body this large would be impractical anyway.
+        if (files.length > 1000) {
+            return res.status(413).json({ error: "Too many files in one bulk commit (max 1000)." });
         }
 
         try {
@@ -188,13 +187,14 @@ export default async function handler(req, res) {
             const commitData = await commitRes.json();
             const baseTreeSha = commitData.tree.sha;
 
-            // 2. Create a blob for every file. Run with capped concurrency
-            //    (5 at a time, down from 10 — GitHub's secondary rate limit
-            //    triggers on bursts of rapid writes, and 10-wide concurrency
-            //    across many back-to-back chunks tripped it in practice) and
-            //    retry individual 403 "secondary rate limit" hits with
-            //    backoff instead of giving up on the whole chunk immediately.
-            const CONCURRENCY = 5;
+            // 2. Create a blob for every file. Run with capped concurrency.
+            //    Everything now goes through in a single request (no more
+            //    client-side chunking/pacing), so this is the only thing
+            //    standing between "all 1000 files" and GitHub's rate limits.
+            //    20-wide keeps total wall time reasonable for ~1000 files
+            //    while individual 403/429 "secondary rate limit" hits still
+            //    retry with backoff instead of failing the whole batch.
+            const CONCURRENCY = 20;
             const blobResults = new Array(files.length);
             const errors = [];
             let nextIndex = 0;
