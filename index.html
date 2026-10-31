@@ -1461,8 +1461,6 @@
          // ══════════════════════════════════════════════════════════
          // PUSH
          // ══════════════════════════════════════════════════════════
-         const BULK_COMMIT_THRESHOLD = 10;
-
          document.getElementById('pushBtn').addEventListener('click', async () => {
            const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
@@ -1485,11 +1483,12 @@
              return showToast('Nothing to push — everything already committed', 'good');
            }
 
-           if (toPush.length >= BULK_COMMIT_THRESHOLD) {
-             await pushBulk(repo, label, originalLabel, toPush);
-           } else {
-             await pushOneByOne(repo, label, originalLabel, toPush);
-           }
+           // Always use the bulk endpoint so any push — 1 file or 1,000 —
+           // lands as a single commit (chunked into multiple only when the
+           // batch exceeds MAX_CHUNK_FILES/MAX_CHUNK_BYTES). pushOneByOne
+           // (one commit per file via the Contents API) is kept only as a
+           // manual fallback, no longer chosen automatically.
+           await pushBulk(repo, label, originalLabel, toPush);
 
            btn.disabled = fileState.length === 0;
          });
