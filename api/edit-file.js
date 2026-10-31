@@ -292,7 +292,7 @@ export default async function handler(req, res) {
         }
     }
 
-    const { repo, path, content, sha, deleteRepo, deleteFile, deleteFolder, branch: branchOverride, message: customMessage } = req.method === 'GET' ? req.query : req.body;
+    const { repo, path, content, sha, deleteRepo, deleteFile, deleteFolder, deletePaths, deleteAll, branch: branchOverride, message: customMessage } = req.method === 'GET' ? req.query : req.body;
 
     // NEW: Delete an entire repository
     if (req.method === 'DELETE' && deleteRepo) {
@@ -393,6 +393,132 @@ export default async function handler(req, res) {
             const newCommit = await newCommitRes.json();
 
             // 6. Fast-forward the branch ref to the new commit.
+            const updateRefRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/heads/${branch}`, {
+                method: 'PATCH',
+                headers: ghHeaders,
+                body: JSON.stringify({ sha: newCommit.sha })
+            });
+            if (!updateRefRes.ok) return res.status(updateRefRes.status).json({ error: "Could not update branch ref." });
+
+            return res.status(200).json({
+                success: true,
+                deletedCount: removed.length,
+                deletedPaths: removed.map(e => e.path),
+                commitSha: newCommit.sha
+            });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
+    // NEW: Delete an arbitrary set of files (e.g. "selected" files, or
+    // literally every file in the repo) in ONE commit. Same approach as
+    // deleteFolder above (Git Data API: rewrite the tree, make one commit,
+    // fast-forward the ref) but driven by an explicit path list, or by
+    // deleteAll to wipe every blob currently in the tree. This is what
+    // "Delete selected" and "Delete ALL files" should use instead of
+    // looping a single-file DELETE per path (one commit per file).
+    if (req.method === 'DELETE' && (deletePaths || deleteAll)) {
+        if (!repo) {
+            return res.status(400).json({ error: "Missing required parameter: repo." });
+        }
+        if (!deleteAll && (!Array.isArray(deletePaths) || deletePaths.length === 0)) {
+            return res.status(400).json({ error: "deletePaths must be a non-empty array." });
+        }
+        try {
+            const ghHeaders = {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+
+            // 1. Resolve the target branch: explicit override, or the repo's default.
+            let branch = branchOverride;
+            if (!branch) {
+                const repoInfoRes = await fetch(`https://api.github.com/repos/${repo}`, { headers: ghHeaders });
+                if (!repoInfoRes.ok) return res.status(repoInfoRes.status).json({ error: "Could not read repository info." });
+                const repoInfo = await repoInfoRes.json();
+                branch = repoInfo.default_branch;
+            }
+
+            // 2. Resolve that branch to its current commit + tree sha.
+            const refRes = await fetch(`https://api.github.com/repos/${repo}/git/ref/heads/${branch}`, { headers: ghHeaders });
+            if (!refRes.ok) return res.status(refRes.status).json({ error: "Could not resolve branch ref." });
+            const refData = await refRes.json();
+            const commitSha = refData.object.sha;
+
+            const commitRes = await fetch(`https://api.github.com/repos/${repo}/git/commits/${commitSha}`, { headers: ghHeaders });
+            if (!commitRes.ok) return res.status(commitRes.status).json({ error: "Could not read base commit." });
+            const commitData = await commitRes.json();
+            const baseTreeSha = commitData.tree.sha;
+
+            // 3. Get the FULL recursive tree so we can see every file.
+            const treeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees/${baseTreeSha}?recursive=1`, { headers: ghHeaders });
+            if (!treeRes.ok) return res.status(treeRes.status).json({ error: "Could not read repository tree." });
+            const treeData = await treeRes.json();
+
+            if (treeData.truncated) {
+                return res.status(422).json({ error: "Repository tree is too large to process in one request." });
+            }
+
+            // 4. Figure out which blobs to remove.
+            let removed;
+            if (deleteAll) {
+                removed = treeData.tree.filter(entry => entry.type === 'blob');
+            } else {
+                const targetSet = new Set(deletePaths);
+                removed = treeData.tree.filter(entry => entry.type === 'blob' && targetSet.has(entry.path));
+            }
+            if (removed.length === 0) {
+                return res.status(404).json({ error: "No matching files found to delete." });
+            }
+
+            // 5. Build the new tree: every blob NOT being removed, unchanged.
+            const removedSet = new Set(removed.map(e => e.path));
+            const newTreeEntries = treeData.tree
+                .filter(entry => entry.type === 'blob' && !removedSet.has(entry.path))
+                .map(entry => ({
+                    path: entry.path,
+                    mode: entry.mode,
+                    type: entry.type,
+                    sha: entry.sha
+                }));
+
+            // GitHub requires at least one entry when creating a tree from
+            // scratch via this endpoint only if base_tree is omitted; since
+            // we always pass entries (possibly empty array when deleting
+            // everything), an empty tree is created by posting base_tree
+            // with no entries that survive, which GitHub supports — it just
+            // means the resulting tree is empty.
+            const newTreeBody = newTreeEntries.length > 0
+                ? { tree: newTreeEntries }
+                : { tree: [] };
+
+            const newTreeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees`, {
+                method: 'POST',
+                headers: ghHeaders,
+                body: JSON.stringify(newTreeBody)
+            });
+            if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: "Could not create new tree." });
+            const newTree = await newTreeRes.json();
+
+            // 6. Commit the new tree on top of the current commit.
+            const commitMessage = customMessage || (deleteAll
+                ? `Delete all files (${removed.length} file${removed.length === 1 ? '' : 's'})`
+                : `Delete ${removed.length} file${removed.length === 1 ? '' : 's'}`);
+
+            const newCommitRes = await fetch(`https://api.github.com/repos/${repo}/git/commits`, {
+                method: 'POST',
+                headers: ghHeaders,
+                body: JSON.stringify({
+                    message: commitMessage,
+                    tree: newTree.sha,
+                    parents: [commitSha]
+                })
+            });
+            if (!newCommitRes.ok) return res.status(newCommitRes.status).json({ error: "Could not create new commit." });
+            const newCommit = await newCommitRes.json();
+
+            // 7. Fast-forward the branch ref to the new commit.
             const updateRefRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/heads/${branch}`, {
                 method: 'PATCH',
                 headers: ghHeaders,
