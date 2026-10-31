@@ -705,6 +705,7 @@
          border-radius: 5px;
          }
          .organizer-folder-toggle:hover { background: var(--border-soft); }
+         .organizer-folder-checkbox { flex-shrink: 0; cursor: pointer; width: 14px; height: 14px; margin: 0; }
          .organizer-folder-name {
          font-size: 12.5px;
          font-family: var(--mono);
@@ -1829,6 +1830,7 @@
          let repoTree = [];       // flat list of { path, sha } for every file in the repo
          let repoTreeLoadedFor = null; // which repo full_name the tree belongs to
          let selectedPaths = new Set();
+         let selectedFolders = new Set(); // top-level folder names checked for batch deletion
          let collapsedFolders = new Set(); // folder paths currently collapsed in the UI
 
          organizeBtn.addEventListener('click', async () => {
@@ -1956,10 +1958,12 @@
            const folderBlocks = folderNames.map(folder => {
              const files = groups.get(folder);
              const isCollapsed = collapsedFolders.has(folder);
+             const isChecked = selectedFolders.has(folder);
              const rows = files.map(fileRowHtml).join('');
              return `
              <div class="organizer-folder" data-folder="${escapeHtml(folder)}">
                <div class="organizer-folder-head">
+                 <input type="checkbox" class="organizer-folder-checkbox" data-folder="${escapeHtml(folder)}" ${isChecked ? 'checked' : ''} onchange="window.toggleOrganizerFolder(this)" title="Select this folder for batch delete">
                  <button type="button" class="organizer-folder-toggle" onclick="window.organizerToggleFolder('${escapeHtml(folder).replace(/'/g, "\\'")}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">
                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: rotate(${isCollapsed ? '-90' : '0'}deg); transition: transform .15s;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
                  </button>
@@ -1975,6 +1979,16 @@
              </div>`;
            }).join('');
 
+           const folderSelectionBar = selectedFolders.size > 0 ? `
+             <div class="organizer-folder-selection-bar" style="display:flex; align-items:center; gap:10px; padding:8px 0;">
+               <span class="organizer-count-pill">${selectedFolders.size} folder${selectedFolders.size === 1 ? '' : 's'} selected</span>
+               <button type="button" class="organizer-delete-btn" id="organizerDeleteFoldersBtn" onclick="window.organizerDeleteSelectedFolders()">
+                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
+                 Delete selected folders (1 commit)
+               </button>
+               <button class="organizer-select-link" onclick="window.organizerClearFolderSelection()">clear</button>
+             </div>` : '';
+
            organizerBody.innerHTML = `
              <div class="organizer-controls-row">
                <span class="organizer-count-pill" id="organizerCountPill">${selectedPaths.size} selected</span>
@@ -1983,6 +1997,7 @@
                  <button class="organizer-select-link" onclick="window.organizerSelectNone()">clear</button>
                </div>
              </div>
+             ${folderSelectionBar}
              <div class="organizer-list">${rootRows}${folderBlocks}</div>
              <div class="organizer-move-row">
                <input type="text" id="organizerFolderInput" placeholder="folder name, e.g. css">
@@ -2061,6 +2076,65 @@
            if (collapsedFolders.has(folder)) collapsedFolders.delete(folder);
            else collapsedFolders.add(folder);
            renderOrganizer();
+         };
+
+         // Checking a folder's checkbox adds it to a batch-delete selection
+         // instead of deleting it immediately — this is what lets you pick
+         // several folders before deleting any of them.
+         window.toggleOrganizerFolder = (checkbox) => {
+           const folder = checkbox.getAttribute('data-folder');
+           if (checkbox.checked) selectedFolders.add(folder);
+           else selectedFolders.delete(folder);
+           renderOrganizer();
+         };
+
+         window.organizerClearFolderSelection = () => {
+           selectedFolders = new Set();
+           renderOrganizer();
+         };
+
+         // Deletes every checked folder (and everything nested under each)
+         // in a SINGLE commit, however many folders are selected — it just
+         // expands the selection to the full set of file paths under those
+         // folders and hands them to the same deletePaths backend route
+         // that organizerDeleteSelected/organizerDeleteAll use.
+         window.organizerDeleteSelectedFolders = async () => {
+           const repo = repoSelect.value;
+           if (!repo) return showToast('Select a repository first', 'bad');
+           if (selectedFolders.size === 0) return showToast('Check at least one folder', 'bad');
+
+           const folders = [...selectedFolders];
+           const targets = repoTree.filter(f => folders.some(folder => f.path.startsWith(`${folder}/`)));
+           if (targets.length === 0) return showToast('No files found in the selected folders', 'bad');
+
+           const folderList = folders.map(f => `${f}/`).join(', ');
+           if (!confirm(`Delete ${folders.length} folder${folders.length === 1 ? '' : 's'} (${folderList}) — ${targets.length} file${targets.length === 1 ? '' : 's'} total — in ONE commit? This cannot be undone.`)) return;
+
+           const delBtn = document.getElementById('organizerDeleteSelectedBtn');
+           const delAllBtn = document.getElementById('organizerDeleteAllBtn');
+           const delFoldersBtn = document.getElementById('organizerDeleteFoldersBtn');
+           if (delBtn) delBtn.disabled = true;
+           if (delAllBtn) delAllBtn.disabled = true;
+           if (delFoldersBtn) delFoldersBtn.disabled = true;
+           organizerStatus.style.display = 'flex';
+           organizerStatus.innerHTML = spinnerHtml(`Deleting ${folders.length} folder${folders.length === 1 ? '' : 's'} (${targets.length} file${targets.length === 1 ? '' : 's'}, 1 commit)...`);
+
+           try {
+             const data = await deleteManyInOneCommit(repo, targets.map(f => f.path));
+             const deletedSet = new Set(data.deletedPaths || []);
+             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
+             for (const p of deletedSet) selectedPaths.delete(p);
+             selectedFolders = new Set();
+             renderOrganizer();
+             showToast(`Deleted ${folders.length} folder${folders.length === 1 ? '' : 's'} (${data.deletedCount ?? targets.length} files, 1 commit)`, 'good');
+           } catch (err) {
+             showToast(err.message || 'Folder delete failed', 'bad');
+           } finally {
+             organizerStatus.style.display = 'none';
+             if (delBtn) delBtn.disabled = false;
+             if (delAllBtn) delAllBtn.disabled = false;
+             if (delFoldersBtn) delFoldersBtn.disabled = false;
+           }
          };
 
          // Deletes an entire folder (and everything nested inside it) in a
