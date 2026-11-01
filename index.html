@@ -2060,10 +2060,10 @@
            organizerStatus.innerHTML = spinnerHtml(`Deleting ${path}...`);
            try {
              await deleteOneFile(repo, f);
-             repoTree = repoTree.filter(x => x.path !== path);
-             selectedPaths.delete(path);
+             await reloadOrganizerFromGitHub(repo);
+             if (repoTree.some(x => x.path === path)) throw new Error(`GitHub still reports ${path}; deletion was not verified.`);
              renderOrganizer();
-             showToast(`Deleted ${path}`, 'good');
+             showToast(`Deleted ${path} (verified on GitHub)`, 'good');
            } catch (err) {
              showToast(err.message || 'Delete failed', 'bad');
            } finally {
@@ -2120,12 +2120,12 @@
 
            try {
              const data = await deleteManyInOneCommit(repo, targets.map(f => f.path));
-             const deletedSet = new Set(data.deletedPaths || []);
-             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
-             for (const p of deletedSet) selectedPaths.delete(p);
-             selectedFolders = new Set();
+             await reloadOrganizerFromGitHub(repo);
+             const remaining = new Set(repoTree.map(f => f.path));
+             const stillPresent = targets.filter(f => remaining.has(f.path));
+             if (stillPresent.length) throw new Error(`GitHub still reports ${stillPresent.length} file(s); deletion was not verified.`);
              renderOrganizer();
-             showToast(`Deleted ${folders.length} folder${folders.length === 1 ? '' : 's'} (${data.deletedCount ?? targets.length} files, 1 commit)`, 'good');
+             showToast(`Deleted ${data.deletedCount ?? targets.length} file${(data.deletedCount ?? targets.length) === 1 ? '' : 's'} in ${folders.length} folder${folders.length === 1 ? '' : 's'} (verified on GitHub)`, 'good');
            } catch (err) {
              showToast(err.message || 'Folder delete failed', 'bad');
            } finally {
@@ -2164,12 +2164,13 @@
                throw new Error(err.error || `Failed to delete folder ${folder}`);
              }
              const data = await res.json();
-             const deletedSet = new Set(data.deletedPaths || []);
-             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
-             for (const p of deletedSet) selectedPaths.delete(p);
+             await reloadOrganizerFromGitHub(repo);
+             const remaining = new Set(repoTree.map(f => f.path));
+             const stillPresent = [...remaining].filter(p => p.startsWith(`${folder}/`));
+             if (stillPresent.length) throw new Error(`GitHub still reports ${stillPresent.length} file(s) in ${folder}/; deletion was not verified.`);
              collapsedFolders.delete(folder);
              renderOrganizer();
-             showToast(`Deleted folder ${folder}/ (${data.deletedCount ?? count} file${(data.deletedCount ?? count) === 1 ? '' : 's'}, 1 commit)`, 'good');
+             showToast(`Deleted folder ${folder}/ (${data.deletedCount ?? count} files, verified on GitHub)`, 'good');
            } catch (err) {
              showToast(err.message || 'Folder delete failed', 'bad');
            } finally {
@@ -2195,6 +2196,23 @@
            return res.json();
          }
 
+         // Always re-read GitHub after a destructive operation. The UI must
+         // never report deletion merely because a local array was filtered.
+         async function reloadOrganizerFromGitHub(repo) {
+           const qs = new URLSearchParams({ listTree: repo });
+           const branch = currentBranch();
+           if (branch) qs.set('branch', branch);
+           const res = await fetch(`${API_URL}?${qs.toString()}`);
+           const data = await res.json().catch(() => ({}));
+           if (!res.ok) throw new Error(data.error || 'Could not verify the repository after deletion');
+           if (!Array.isArray(data.files)) throw new Error('GitHub returned an invalid repository file list');
+           repoTree = data.files;
+           repoTreeLoadedFor = repo;
+           selectedPaths = new Set();
+           selectedFolders = new Set();
+           return repoTree;
+         }
+
          window.organizerDeleteSelected = async () => {
            const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
@@ -2212,11 +2230,12 @@
 
            try {
              const data = await deleteManyInOneCommit(repo, targets.map(f => f.path));
-             const deletedSet = new Set(data.deletedPaths || []);
-             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
-             for (const p of deletedSet) selectedPaths.delete(p);
+             await reloadOrganizerFromGitHub(repo);
+             const remaining = new Set(repoTree.map(f => f.path));
+             const stillPresent = targets.filter(f => remaining.has(f.path));
+             if (stillPresent.length) throw new Error(`GitHub still reports ${stillPresent.length} selected file(s); deletion was not verified.`);
              renderOrganizer();
-             showToast(`Deleted ${data.deletedCount ?? targets.length} file${(data.deletedCount ?? targets.length) === 1 ? '' : 's'} (1 commit)`, 'good');
+             showToast(`Deleted ${data.deletedCount ?? targets.length} file${(data.deletedCount ?? targets.length) === 1 ? '' : 's'} (verified on GitHub)`, 'good');
            } catch (err) {
              showToast(err.message || 'Delete failed', 'bad');
            } finally {
@@ -2256,11 +2275,10 @@
                throw new Error(err.error || 'Failed to delete all files');
              }
              const data = await res.json();
-             const deletedSet = new Set(data.deletedPaths || []);
-             repoTree = repoTree.filter(f => !deletedSet.has(f.path));
-             selectedPaths = new Set();
+             await reloadOrganizerFromGitHub(repo);
+             if (repoTree.length) throw new Error(`GitHub still reports ${repoTree.length} file(s); delete-all was not verified.`);
              renderOrganizer();
-             showToast(`Deleted all ${data.deletedCount ?? deletedSet.size} files (1 commit)`, 'good');
+             showToast(`Deleted all ${data.deletedCount ?? 0} files (verified on GitHub)`, 'good');
            } catch (err) {
              showToast(err.message || 'Delete all failed', 'bad');
            } finally {

@@ -7,6 +7,9 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const token = process.env.GITHUB_TOKEN;
+    if (!token) {
+        return res.status(500).json({ error: "GitHub is not configured: GITHUB_TOKEN is missing." });
+    }
 
     // NEW FEATURE: Intercept request to list user repositories automatically
     if (req.method === 'GET' && req.query.fetchRepos === 'true') {
@@ -359,31 +362,21 @@ export default async function handler(req, res) {
                 return res.status(404).json({ error: "No files found under that folder." });
             }
 
-            // 4. Build the new tree: everything NOT under the folder, unchanged.
-            //    IMPORTANT: keep every entry type here, not just 'blob'.
-            //    A recursive tree listing can include 'commit' entries
-            //    (submodules / gitlinks, mode 160000) and, in repos with
-            //    certain history, stray 'tree' entries. Filtering those out
-            //    by only keeping type === 'blob' silently dropped them from
-            //    newTreeEntries, and POSTing a tree that omits a path whose
-            //    parent directory still has other children confuses GitHub's
-            //    tree builder on larger trees — that's what was surfacing as
-            //    the generic "Could not create new tree" error on folders
-            //    with 100+ files. Only drop entries that are actually inside
-            //    the deleted folder; keep every other type as-is.
-            const newTreeEntries = treeData.tree
-                .filter(entry => !entry.path.startsWith(folderPrefix))
-                .map(entry => ({
-                    path: entry.path,
-                    mode: entry.mode,
-                    type: entry.type,
-                    sha: entry.sha
-                }));
+            // Delete the folder's blobs relative to the existing tree.
+            // GitHub's Git Trees API requires base_tree + sha:null entries
+            // for removals; posting a reconstructed recursive tree without
+            // base_tree is not a reliable deletion operation.
+            const deleteEntries = removed.map(entry => ({
+                path: entry.path,
+                mode: entry.mode,
+                type: 'blob',
+                sha: null
+            }));
 
             const newTreeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees`, {
                 method: 'POST',
                 headers: ghHeaders,
-                body: JSON.stringify({ tree: newTreeEntries })
+                body: JSON.stringify({ base_tree: baseTreeSha, tree: deleteEntries })
             });
             if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: await ghError(newTreeRes, "Could not create new tree.") });
             const newTree = await newTreeRes.json();
@@ -482,29 +475,20 @@ export default async function handler(req, res) {
                 return res.status(404).json({ error: "No matching files found to delete." });
             }
 
-            // 5. Build the new tree: everything NOT being removed, unchanged.
-            //    Keep every entry type here (blob, tree, commit/submodule) —
-            //    only filtering type === 'blob' would silently drop
-            //    submodule (gitlink, mode 160000) or stray 'tree' entries
-            //    from the payload. On a large tree that mismatch is what
-            //    GitHub's tree builder rejected with a generic 422, which
-            //    surfaced here as "Could not create new tree."
-            const removedSet = new Set(removed.map(e => e.path));
-            const newTreeEntries = treeData.tree
-                .filter(entry => !removedSet.has(entry.path))
-                .map(entry => ({
-                    path: entry.path,
-                    mode: entry.mode,
-                    type: entry.type,
-                    sha: entry.sha
-                }));
+            // Remove only the selected blobs from the current tree. The
+            // Git Trees API uses sha:null tombstones together with base_tree;
+            // omitting base_tree here can create a detached/incomplete tree.
+            const deleteEntries = removed.map(entry => ({
+                path: entry.path,
+                mode: entry.mode,
+                type: 'blob',
+                sha: null
+            }));
 
-            // GitHub accepts an empty tree array fine (e.g. deleting every
-            // file leaves nothing behind) — no special-casing needed.
             const newTreeRes = await fetch(`https://api.github.com/repos/${repo}/git/trees`, {
                 method: 'POST',
                 headers: ghHeaders,
-                body: JSON.stringify({ tree: newTreeEntries })
+                body: JSON.stringify({ base_tree: baseTreeSha, tree: deleteEntries })
             });
             if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: await ghError(newTreeRes, "Could not create new tree.") });
             const newTree = await newTreeRes.json();
