@@ -855,6 +855,16 @@
                      <span class="switch-track"><span class="switch-thumb"></span></span>
                      </label>
                   </div>
+                  <div class="setting-row">
+                     <div class="setting-copy">
+                        <div class="setting-name">Push one file per commit</div>
+                        <div class="setting-desc">Off (default): the whole queue is pushed as ONE commit. On: every file gets its own commit, same as before — slower, but gives you a commit per file in history.</div>
+                     </div>
+                     <label class="switch">
+                     <input type="checkbox" id="perFileCommitToggle">
+                     <span class="switch-track"><span class="switch-thumb"></span></span>
+                     </label>
+                  </div>
                   <div class="settings-footer">
                      <span>saved locally</span>
                      <button class="clear-link" id="clearQueueBtn">clear queue</button>
@@ -1003,7 +1013,7 @@
          // SETTINGS — persisted to localStorage, applied live
          // ══════════════════════════════════════════════════════════
          const SETTINGS_KEY = 'pusher.settings.v1';
-         const defaultSettings = { autoApi: true, flatten: false, skipDotfiles: true, theme: 'dark' };
+         const defaultSettings = { autoApi: true, flatten: false, skipDotfiles: true, theme: 'dark', perFileCommit: false };
 
          function loadSettings() {
            try {
@@ -1023,6 +1033,7 @@
          const autoApiToggle = document.getElementById('autoApiToggle');
          const flattenToggle = document.getElementById('flattenToggle');
          const skipDotfilesToggle = document.getElementById('skipDotfilesToggle');
+         const perFileCommitToggle = document.getElementById('perFileCommitToggle');
          const settingsWrap = document.getElementById('settingsWrap');
          const settingsBtn = document.getElementById('settingsBtn');
          const hintText = document.getElementById('hintText');
@@ -1032,6 +1043,7 @@
          autoApiToggle.checked = settings.autoApi;
          flattenToggle.checked = settings.flatten;
          skipDotfilesToggle.checked = settings.skipDotfiles;
+         perFileCommitToggle.checked = settings.perFileCommit;
          updateHint();
          applyTheme();
 
@@ -1053,6 +1065,12 @@
          skipDotfilesToggle.addEventListener('change', () => {
            settings.skipDotfiles = skipDotfilesToggle.checked;
            saveSettings();
+         });
+         perFileCommitToggle.addEventListener('change', () => {
+           settings.perFileCommit = perFileCommitToggle.checked;
+           saveSettings();
+           updatePushBtnLabel();
+           showToast(settings.perFileCommit ? 'Will push one commit per file' : 'Will push the whole queue as one commit', 'good');
          });
 
          document.getElementById('clearQueueBtn').addEventListener('click', () => {
@@ -1483,12 +1501,17 @@
              return showToast('Nothing to push — everything already committed', 'good');
            }
 
-           // Always use the bulk endpoint so any push — 1 file or 1,000 —
+           // By default use the bulk endpoint so a push — 1 file or 1,000 —
            // lands as a single commit (chunked into multiple only when the
-           // batch exceeds MAX_CHUNK_FILES/MAX_CHUNK_BYTES). pushOneByOne
-           // (one commit per file via the Contents API) is kept only as a
-           // manual fallback, no longer chosen automatically.
-           await pushBulk(repo, label, originalLabel, toPush);
+           // batch exceeds MAX_CHUNK_FILES/MAX_CHUNK_BYTES). Flipping the
+           // "push one file per commit" setting switches to pushOneByOne
+           // instead, same as the delete side offers both "1 commit" and
+           // "per folder/file" modes.
+           if (settings.perFileCommit) {
+             await pushOneByOne(repo, label, originalLabel, toPush);
+           } else {
+             await pushBulk(repo, label, originalLabel, toPush);
+           }
 
            btn.disabled = fileState.length === 0;
          });
@@ -1501,10 +1524,11 @@
            const total = fileState.length;
            const done = fileState.filter(f => f.status === 'done').length;
            const remaining = total - done;
+           const suffix = settings.perFileCommit ? ` (${total} commit${total === 1 ? '' : 's'})` : ' (1 commit)';
            if (total === 0) {
              label.textContent = 'Push files';
            } else if (done === 0) {
-             label.textContent = `Push ${total} file${total === 1 ? '' : 's'}`;
+             label.textContent = `Push ${total} file${total === 1 ? '' : 's'}${suffix}`;
            } else {
              label.textContent = `Retry ${remaining} failed file${remaining === 1 ? '' : 's'}`;
            }
@@ -2399,17 +2423,65 @@
                return;
              }
 
+             // Fetch file contents via the backend's getBlobs route, which
+             // fans requests out to GitHub concurrently server-side, instead
+             // of awaiting one Contents-API fetch per file here in a
+             // sequential for-loop (that was the "zips 1 by 1, takes
+             // forever" bottleneck on big repos — 500+ files meant 500+
+             // serial round trips). Chunk the file list so each request body
+             // and each backend invocation stays reasonably sized, and run a
+             // few chunks in flight at once.
+             const DOWNLOAD_CHUNK_SIZE = 150;
+             const DOWNLOAD_CHUNK_CONCURRENCY = 3;
+             const chunks = [];
+             for (let i = 0; i < files.length; i += DOWNLOAD_CHUNK_SIZE) {
+               chunks.push(files.slice(i, i + DOWNLOAD_CHUNK_SIZE));
+             }
+
              const zip = new JSZip();
              let done = 0;
-             for (const f of files) {
-               downloadZipBtnLabel.textContent = `Zipping ${done + 1}/${files.length}...`;
-               const res = await fetch(`${API_URL}?repo=${encodeURIComponent(repoFull)}&path=${encodeURIComponent(f.path)}`);
-               if (!res.ok) { done++; continue; }
-               const data = await res.json();
-               if (data && typeof data.content === 'string') {
-                 zip.file(f.path, data.content.replace(/\n/g, ''), { base64: true });
+             const failedPaths = [];
+             let nextChunkIndex = 0;
+
+             async function downloadWorker() {
+               while (nextChunkIndex < chunks.length) {
+                 const chunk = chunks[nextChunkIndex++];
+                 const res = await fetch(API_URL, {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({
+                     repo: repoFull,
+                     getBlobs: true,
+                     files: chunk.map(f => ({ path: f.path, sha: f.sha }))
+                   })
+                 });
+                 if (!res.ok) {
+                   const err = await res.json().catch(() => ({}));
+                   failedPaths.push(...chunk.map(f => f.path));
+                   done += chunk.length;
+                   downloadZipBtnLabel.textContent = `Zipping ${done}/${files.length}...`;
+                   continue;
+                 }
+                 const data = await res.json();
+                 const got = new Set();
+                 for (const b of (data.blobs || [])) {
+                   got.add(b.path);
+                   if (typeof b.content === 'string') {
+                     zip.file(b.path, b.content.replace(/\n/g, ''), { base64: true });
+                   }
+                 }
+                 for (const f of chunk) {
+                   if (!got.has(f.path)) failedPaths.push(f.path);
+                 }
+                 done += chunk.length;
+                 downloadZipBtnLabel.textContent = `Zipping ${Math.min(done, files.length)}/${files.length}...`;
                }
-               done++;
+             }
+
+             await Promise.all(Array.from({ length: Math.min(DOWNLOAD_CHUNK_CONCURRENCY, chunks.length) }, downloadWorker));
+
+             if (failedPaths.length > 0) {
+               showToast(`${failedPaths.length} file${failedPaths.length === 1 ? '' : 's'} could not be fetched and were skipped`, 'bad');
              }
 
              downloadZipBtnLabel.textContent = 'Building zip...';

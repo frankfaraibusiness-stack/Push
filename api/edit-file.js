@@ -132,6 +132,69 @@ export default async function handler(req, res) {
         }
     }
 
+    // NEW: Fetch many file blobs by SHA in parallel — the counterpart to
+    // bulkCommit for downloads. The "download as zip" button used to call
+    // the single-file Contents API once per file, awaited sequentially in
+    // a for-loop on the frontend: on a Next.js repo with 500+ files that's
+    // 500+ serial round trips and takes forever. Here the frontend sends
+    // the full list of {path, sha} (already known from listTree, no extra
+    // GitHub calls needed to resolve them) in ONE request, and this route
+    // fans the actual GitHub reads out with capped concurrency server-side
+    // using the Git Data API's blob endpoint (returns base64 content
+    // directly, same encoding the frontend already expects from the
+    // Contents API).
+    // Frontend calls: POST ${BACKEND} body: { repo, getBlobs: true, files: [{path, sha}, ...] }
+    if (req.method === 'POST' && req.body && req.body.getBlobs) {
+        const { repo: gbRepo, files: gbFiles } = req.body;
+        if (!gbRepo || !Array.isArray(gbFiles) || gbFiles.length === 0) {
+            return res.status(400).json({ error: "Missing required parameters: repo or files." });
+        }
+        if (gbFiles.length > 5000) {
+            return res.status(413).json({ error: "Too many files in one request (max 5000)." });
+        }
+        try {
+            const ghHeaders = { 'Authorization': `Bearer ${token}` };
+            const CONCURRENCY = 8;
+            const results = new Array(gbFiles.length);
+            const errors = [];
+            let nextIndex = 0;
+
+            async function worker() {
+                while (nextIndex < gbFiles.length) {
+                    const i = nextIndex++;
+                    const f = gbFiles[i];
+                    if (!f || !f.path || !f.sha) {
+                        errors.push({ path: f && f.path, error: 'Missing path or sha' });
+                        continue;
+                    }
+                    try {
+                        const blobRes = await fetch(`https://api.github.com/repos/${gbRepo}/git/blobs/${f.sha}`, { headers: ghHeaders });
+                        if (!blobRes.ok) {
+                            errors.push({ path: f.path, error: `Blob fetch failed (${blobRes.status})` });
+                            continue;
+                        }
+                        const blobData = await blobRes.json();
+                        // Git blobs are always base64 here since we only ever
+                        // ask for blobs whose sha came from a tree listing of
+                        // real files (GitHub returns 'utf-8' for text blobs
+                        // only when requested without matching — in practice
+                        // the blobs endpoint returns base64 for binary-safe
+                        // transfer; fall back to treating it as-is otherwise).
+                        results[i] = { path: f.path, content: blobData.content, encoding: blobData.encoding || 'base64' };
+                    } catch (err) {
+                        errors.push({ path: f.path, error: err.message });
+                    }
+                }
+            }
+            await Promise.all(Array.from({ length: Math.min(CONCURRENCY, gbFiles.length) }, worker));
+
+            const blobs = results.filter(Boolean);
+            return res.status(200).json({ blobs, failedCount: errors.length, errors });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
+
     // NEW: Bulk upload — push many files to a repo in ONE commit instead of
     // one PUT (contents API) per file. This is the counterpart to
     // deleteFolder below: it uses the Git Data API to create a blob per
