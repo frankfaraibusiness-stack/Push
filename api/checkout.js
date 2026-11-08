@@ -1,14 +1,11 @@
 // api/checkout.js
 //
 // Vercel serverless function. Runs on Vercel's server, never in the
-// browser — this is where the Sitevento API key belongs.
+// browser.
 //
-// Set SITEVENTO_API_KEY in your Vercel project:
-//   Project -> Settings -> Environment Variables
-//   Name: SITEVENTO_API_KEY
-//   Value: sv_test_... (or sv_live_... later)
-// Redeploy after adding it. Locally, put it in a .env file (see
-// .env.example) and it'll be picked up by `vercel dev`.
+// ⚠️ The Sitevento API key is hardcoded below as requested. This means
+// anyone with access to this file / the repo can read it. For production,
+// move it back to process.env.SITEVENTO_API_KEY and rotate this key.
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -16,9 +13,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.sv_live_MezP4hemk0sQzuNJHygKwpgK4W3pnB8z;
+  // Hardcoded API key.
+  const apiKey = 'sv_live_MezP4hemk0sQzuNJHygKwpgK4W3pnB8z';
   if (!apiKey) {
-    console.error('[checkout] Missing SITEVENTO_API_KEY env var');
+    console.error('[checkout] Missing Sitevento API key');
     return res.status(500).json({ ok: false, error: 'Server not configured.' });
   }
 
