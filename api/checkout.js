@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const apiKey = process.env.SITEVENTO_API_KEY;
+  const apiKey = process.env.sv_live_MezP4hemk0sQzuNJHygKwpgK4W3pnB8z;
   if (!apiKey) {
     console.error('[checkout] Missing SITEVENTO_API_KEY env var');
     return res.status(500).json({ ok: false, error: 'Server not configured.' });
