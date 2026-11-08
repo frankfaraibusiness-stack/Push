@@ -573,29 +573,84 @@
          padding: 4px 2px 10px;
          }
          .organizer-status svg.spin { flex-shrink: 0; color: var(--accent); }
+
+         /* Toolbar: search + a single "select all" control that is always
+            visible above the scroll area, so nothing about selection state
+            depends on scrolling to find it. */
+         .organizer-toolbar {
+         display: flex;
+         align-items: center;
+         gap: 8px;
+         padding: 0 0 10px;
+         }
+         .organizer-search-wrap {
+         position: relative;
+         flex: 1;
+         min-width: 0;
+         }
+         .organizer-search-wrap svg {
+         position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+         color: var(--text-faint); pointer-events: none;
+         }
+         .organizer-search-wrap input {
+         width: 100%;
+         background: var(--panel-2);
+         border: 1px solid var(--border);
+         color: var(--text);
+         border-radius: 8px;
+         padding: 8px 10px 8px 30px;
+         font-size: 12.5px;
+         font-family: var(--mono);
+         outline: none;
+         box-sizing: border-box;
+         }
+         .organizer-search-wrap input:focus { border-color: var(--accent-dim); }
+         .organizer-search-clear {
+         position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+         background: none; border: none; color: var(--text-faint);
+         width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+         cursor: pointer; border-radius: 5px;
+         }
+         .organizer-search-clear:hover { background: var(--border-soft); color: var(--text); }
+
+         /* The tree: ONE scroll container, fixed viewport height, its own
+            scrollbar. Nothing outside it can clip rows — this is the fix
+            for items being "hidden" / impossible to scroll to. */
          .organizer-list {
-         max-height: 360px;
-         overflow-y: auto;
+         height: 48vh;
+         min-height: 240px;
+         max-height: 520px;
+         overflow-y: scroll;
+         overflow-x: hidden;
          display: flex;
          flex-direction: column;
-         gap: 2px;
+         gap: 1px;
          margin-bottom: 12px;
+         border: 1px solid var(--border-soft);
+         border-radius: 10px;
+         padding: 5px;
+         background: var(--bg);
+         overscroll-behavior: contain;
+         -webkit-overflow-scrolling: touch;
          }
          .organizer-row {
          display: flex;
          align-items: center;
-         gap: 10px;
-         padding: 8px 8px;
-         border-radius: 8px;
+         gap: 9px;
+         padding: 7px 8px;
+         border-radius: 7px;
          cursor: pointer;
          }
          .organizer-row:hover { background: var(--panel-2); }
+         .organizer-row.is-selected { background: var(--panel-2); box-shadow: inset 2px 0 0 var(--accent); }
          .organizer-row input[type="checkbox"] {
-         width: 17px; height: 17px;
+         width: 16px; height: 16px;
          flex-shrink: 0;
          accent-color: var(--accent);
          cursor: pointer;
+         margin: 0;
          }
+         .organizer-row-icon { flex-shrink: 0; color: var(--text-faint); display: flex; }
          .organizer-row-path {
          font-size: 12.5px;
          font-family: var(--mono);
@@ -607,14 +662,14 @@
          flex: 1;
          }
          .organizer-row-path .dir-part { color: var(--text-faint); }
+         .organizer-row-size { font-size: 10.5px; font-family: var(--mono); color: var(--text-faint); flex-shrink: 0; }
          .organizer-controls-row {
          display: flex;
          align-items: center;
          justify-content: space-between;
          gap: 8px;
-         padding: 2px 2px 10px;
-         border-bottom: 1px solid var(--border-soft);
          margin-bottom: 10px;
+         flex-wrap: wrap;
          }
          .organizer-select-link {
          background: none; border: none;
@@ -629,6 +684,13 @@
          color: var(--text-faint);
          text-align: center;
          padding: 24px 10px;
+         }
+         .organizer-row-empty-filter {
+         font-size: 12.5px;
+         color: var(--text-faint);
+         text-align: center;
+         padding: 28px 10px;
+         font-family: var(--mono);
          }
          .organizer-move-row { display: flex; gap: 8px; }
          .organizer-move-row input[type="text"] {
@@ -668,7 +730,9 @@
          background: var(--panel-2);
          border: 1px solid var(--border);
          border-radius: 999px;
+         white-space: nowrap;
          }
+         .organizer-count-pill.has-selection { color: var(--accent); border-color: var(--accent); }
          .organizer-row-del {
          background: none;
          border: none;
@@ -679,35 +743,40 @@
          border-radius: 7px;
          cursor: pointer;
          transition: color .15s, background .15s;
+         opacity: .5;
          }
+         .organizer-row:hover .organizer-row-del { opacity: 1; }
          .organizer-row-del:hover { color: var(--bad); background: var(--bad-dim); }
-         .organizer-folder {
-         border: 1px solid var(--border-soft);
-         border-radius: 9px;
-         margin: 4px 0;
-         overflow: hidden;
-         }
+
+         /* Folder headers are now dividers INSIDE the single scroll list,
+            not separate bordered boxes each with their own delete button —
+            one checkbox selects the whole subtree, and the single bottom
+            action bar handles deletion for whatever is checked. */
          .organizer-folder-head {
          display: flex;
          align-items: center;
          gap: 8px;
          padding: 7px 8px;
+         margin-top: 6px;
+         border-radius: 7px;
          background: var(--panel-2);
          }
+         .organizer-folder-head:first-child { margin-top: 0; }
+         .organizer-folder-head:hover { background: var(--border-soft); }
          .organizer-folder-toggle {
          background: none;
          border: none;
          color: var(--text-faint);
-         width: 20px; height: 20px;
+         width: 18px; height: 18px;
          display: flex; align-items: center; justify-content: center;
          flex-shrink: 0;
          cursor: pointer;
          border-radius: 5px;
+         padding: 0;
          }
-         .organizer-folder-toggle:hover { background: var(--border-soft); }
-         .organizer-folder-checkbox { flex-shrink: 0; cursor: pointer; width: 14px; height: 14px; margin: 0; }
+         .organizer-folder-checkbox { flex-shrink: 0; cursor: pointer; width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
          .organizer-folder-name {
-         font-size: 12.5px;
+         font-size: 12px;
          font-family: var(--mono);
          font-weight: 700;
          color: var(--text);
@@ -715,36 +784,11 @@
          text-overflow: ellipsis;
          white-space: nowrap;
          min-width: 0;
-         }
-         .organizer-folder-count {
-         font-size: 10.5px;
-         font-family: var(--mono);
-         color: var(--text-faint);
-         background: var(--bg);
-         border: 1px solid var(--border-soft);
-         border-radius: 999px;
-         padding: 2px 7px;
-         flex-shrink: 0;
-         margin-left: auto;
-         }
-         .organizer-folder-del {
-         background: var(--bad-dim);
-         color: var(--bad);
-         border: 1px solid var(--bad);
-         border-radius: 7px;
-         padding: 5px 9px;
-         font-size: 11px;
-         font-weight: 700;
-         font-family: inherit;
          cursor: pointer;
-         display: flex; align-items: center; gap: 5px;
-         white-space: nowrap;
-         flex-shrink: 0;
-         transition: background .15s;
+         flex: 1;
          }
-         .organizer-folder-del:hover { background: rgba(248,113,122,0.22); }
-         .organizer-folder-rows { flex-direction: column; gap: 2px; padding: 4px 4px 6px 20px; }
-         .organizer-folder-rows .organizer-row { padding: 6px 8px; }
+         .organizer-folder-count { font-size: 10px; font-family: var(--mono); color: var(--text-faint); flex-shrink: 0; }
+         .organizer-folder-rows { flex-direction: column; gap: 1px; padding: 1px 0 2px 22px; }
          .organizer-danger-row { display: flex; gap: 8px; margin-top: 8px; }
          .organizer-delete-btn {
          background: var(--bad-dim);
@@ -764,7 +808,6 @@
          .organizer-delete-btn:disabled { opacity: .4; cursor: not-allowed; }
          .organizer-delete-all-btn { background: var(--bad); color: #fff; border: none; }
          .organizer-delete-all-btn:hover { background: #e0535d; }
-         .organizer-toggle-row { display: flex; gap: 8px; margin-top: 10px; }
          .organizer-wrap {
          display: grid;
          grid-template-rows: 0fr;
@@ -1536,14 +1579,29 @@
 
          // Serverless platforms (Vercel etc.) cap the raw request body size
          // (commonly ~4.5MB) regardless of how few files that is — base64
-         // content inflates size ~33% over the original bytes, so a few
-         // hundred real-world files can blow past that limit even though
-         // they're nowhere near the 5000-file count cap, and show up as an
-         // opaque HTTP 413 from the platform itself (before our code even
-         // runs). So we chunk by estimated payload size, not just count,
-         // and push each chunk as its own sequential commit.
+         // content inflates size ~33% over the original bytes, so a repo
+         // with a handful of images plus its normal code can blow past
+         // that limit even though it's nowhere near a file-count cap.
+         //
+         // The old approach chunked the file list and pushed each chunk as
+         // its own independent commit (blobs + tree + commit + ref-update,
+         // repeated per chunk) — so a push that needed 3 chunks became 3
+         // separate commits on GitHub instead of the "1 commit" the button
+         // promised. That's fixed here with a TWO-PHASE push:
+         //
+         //   Phase 1 (createBlobs, 1+ calls): each call only uploads a
+         //   batch of file contents as GitHub blobs and returns their
+         //   SHAs — it never touches a tree, commit, or branch ref. This
+         //   is what's allowed to be split into several small requests to
+         //   stay under the body-size limit; splitting it has no visible
+         //   effect on GitHub.
+         //
+         //   Phase 2 (finalizeCommit, exactly 1 call): once every batch's
+         //   blob SHAs are collected, one call builds one tree from all of
+         //   them and makes exactly one commit. However many batches phase
+         //   1 took — 1 or 20 — phase 2 always produces exactly one commit.
          const MAX_CHUNK_BYTES = 3 * 1024 * 1024; // stay safely under ~4.5MB raw body limits
-         const MAX_CHUNK_FILES = 100; // hard ceiling regardless of size, so a chunk of many tiny files still stays a reasonably-sized commit
+         const MAX_CHUNK_FILES = 100; // hard ceiling regardless of size, so a batch of many tiny files still stays a reasonably-sized request
 
          function chunkFilesBySize(files) {
            const chunks = [];
@@ -1575,92 +1633,107 @@
            const baseMessage = currentCommitMessage(`Add ${filesToPush.length} files`);
            const branch = currentBranch();
 
-           let totalCommitted = 0;
-           const allErrors = [];
+           const allBlobs = [];      // { path, mode, type, sha } collected across every batch
+           const allErrors = [];     // per-file blob-creation errors, if any
 
            try {
+             // ── Phase 1: upload blobs in batches. However many batches
+             // this takes, nothing lands on GitHub's branch yet — these
+             // calls only create blob objects. ──
              for (let i = 0; i < chunks.length; i++) {
-               // Small cooldown between chunks (not before the first) so
-               // back-to-back commits don't burst into GitHub's secondary
-               // rate limit the way 139 files in ~2 chunks did previously.
                if (i > 0) {
                  label.textContent = 'Pausing briefly to avoid GitHub rate limits...';
                  await new Promise(r => setTimeout(r, 1500));
                }
                const chunk = chunks[i];
-               const chunkLabel = chunks.length > 1
-                 ? `Pushing chunk ${i + 1}/${chunks.length} (${chunk.length} files)...`
-                 : `Pushing ${chunk.length} files in 1 commit...`;
-               label.textContent = chunkLabel;
+               label.textContent = chunks.length > 1
+                 ? `Uploading batch ${i + 1}/${chunks.length} (${chunk.length} files)...`
+                 : `Uploading ${chunk.length} file${chunk.length === 1 ? '' : 's'}...`;
 
                const res = await fetch(API_URL, {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify({
-                   bulkCommit: true,
+                   createBlobs: true,
                    repo,
-                   branch,
-                   files: chunk.map(f => ({ path: f.path, content: f.content })),
-                   message: chunks.length > 1 ? `${baseMessage} (part ${i + 1}/${chunks.length})` : baseMessage
+                   files: chunk.map(f => ({ path: f.path, content: f.content }))
                  })
                });
 
                if (!res.ok) {
                  const err = await res.json().catch(() => ({}));
-                 console.error(`Bulk commit chunk ${i + 1}/${chunks.length} failed:`, err);
-                 // The backend includes a per-file `details` array (from the
-                 // blob-creation step) even on a whole-chunk failure like
-                 // "No blobs could be created" — surface the first couple of
-                 // actual reasons instead of just the flat summary message,
-                 // since a whole chunk failing almost always has one root
-                 // cause (bad token, rate limit, bad content) repeated per file.
-                 let detailMsg = err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${res.status})`;
-                 if (Array.isArray(err.details) && err.details.length > 0) {
-                   const sample = err.details.slice(0, 3).map(d => `${d.path || '?'}: ${d.error}`).join(' | ');
-                   detailMsg += ` — ${sample}${err.details.length > 3 ? ` (+${err.details.length - 3} more)` : ''}`;
-                 }
-                 // Mark this chunk's files as errored, but leave files in
-                 // chunks we never reached as 'pending' rather than 'error',
-                 // since they were never attempted.
-                 chunk.forEach(f => f._ref.status = 'error');
-                 for (let j = i + 1; j < chunks.length; j++) {
-                   chunks[j].forEach(f => f._ref.status = 'pending');
-                 }
+                 console.error(`Blob batch ${i + 1}/${chunks.length} failed:`, err);
+                 let detailMsg = err.error || `Batch ${i + 1}/${chunks.length} failed (HTTP ${res.status})`;
+                 // Nothing has been committed yet at this point (phase 1 only
+                 // creates blobs), so every queued file is still pending —
+                 // none of them should be marked done/error individually.
+                 filesToPush.forEach(f => f.status = 'pending');
                  renderQueue();
                  throw new Error(detailMsg);
                }
 
                const data = await res.json();
-               const failedPaths = new Set((data.errors || []).map(e => e.path));
-               chunk.forEach(f => { f._ref.status = failedPaths.has(f.path) ? 'error' : 'done'; });
-               renderQueue();
-
-               totalCommitted += data.committedCount || 0;
-               if (data.errors && data.errors.length) allErrors.push(...data.errors);
+               if (Array.isArray(data.blobs)) allBlobs.push(...data.blobs);
+               if (Array.isArray(data.errors) && data.errors.length) allErrors.push(...data.errors);
              }
+
+             if (allBlobs.length === 0) {
+               filesToPush.forEach(f => f.status = 'error');
+               renderQueue();
+               throw new Error('No files could be uploaded.' + (allErrors.length ? ` ${allErrors[0].path}: ${allErrors[0].error}` : ''));
+             }
+
+             // ── Phase 2: ONE call, ONE tree, ONE commit — regardless of
+             // how many batches phase 1 needed. ──
+             label.textContent = chunks.length > 1
+               ? `Finalizing 1 commit for ${allBlobs.length} files...`
+               : `Committing ${allBlobs.length} file${allBlobs.length === 1 ? '' : 's'}...`;
+
+             const finalizeRes = await fetch(API_URL, {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                 finalizeCommit: true,
+                 repo,
+                 branch,
+                 blobs: allBlobs,
+                 message: baseMessage
+               })
+             });
+
+             if (!finalizeRes.ok) {
+               const err = await finalizeRes.json().catch(() => ({}));
+               // Blobs exist on GitHub at this point but nothing is committed
+               // yet — nothing has actually changed in the repo, so every
+               // queued file goes back to pending for a clean retry (retrying
+               // re-uploads the blobs, which is harmless/idempotent).
+               filesToPush.forEach(f => f.status = 'pending');
+               renderQueue();
+               throw new Error(err.error || `Could not finalize commit (HTTP ${finalizeRes.status})`);
+             }
+
+             const finalizeData = await finalizeRes.json();
+             const failedPaths = new Set(allErrors.map(e => e.path));
+             filesToPush.forEach(f => { f.status = failedPaths.has(f.path) ? 'error' : 'done'; });
+             renderQueue();
 
              label.textContent = originalLabel;
 
              if (allErrors.length === 0) {
-               showToast(`Pushed ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} to GitHub in ${chunks.length} commit${chunks.length === 1 ? '' : 's'}`, 'good');
-               // Only drop files that actually landed — anything still
-               // marked 'error' (shouldn't happen when allErrors is empty,
-               // but kept for safety) stays in the queue for a retry.
+               showToast(`Pushed ${finalizeData.committedCount} file${finalizeData.committedCount === 1 ? '' : 's'} to GitHub in 1 commit`, 'good');
                fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              } else {
-               console.error('Per-file bulk commit errors:', allErrors);
+               console.error('Per-file blob upload errors:', allErrors);
                const doneFiles = filesToPush.filter(f => f.status === 'done').map(f => f.path);
                const failedFiles = filesToPush.filter(f => f.status === 'error').map(f => f.path);
                const pendingFiles = filesToPush.filter(f => f.status === 'pending').map(f => f.path);
                showPushResultModal({
-                 title: 'Bulk push partially failed',
-                 summary: `${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed, ${allErrors.length} failed. Click push again to retry only the failed files.`,
+                 title: 'Push committed with some files skipped',
+                 summary: `${finalizeData.committedCount} file${finalizeData.committedCount === 1 ? '' : 's'} committed in 1 commit, ${allErrors.length} couldn't be uploaded. Click push again to retry only the failed files.`,
                  perFileErrors: allErrors,
                  doneFiles, failedFiles, pendingFiles
                });
-               // Drop the ones confirmed done; keep failed/pending ones in
-               // the queue so the next click only retries what's left.
                fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              }
@@ -1671,15 +1744,12 @@
              const failedFiles = filesToPush.filter(f => f.status === 'error').map(f => f.path);
              const pendingFiles = filesToPush.filter(f => f.status === 'pending').map(f => f.path);
              showPushResultModal({
-               title: 'Bulk push failed',
+               title: 'Push failed',
                summary: (err.message || 'Unknown error — see browser console for details.') +
-                 (totalCommitted > 0 ? ` ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} committed before this failure — already on GitHub.` : '') +
-                 ' Click push again to retry only the files that failed.',
+                 ' Nothing was committed, so your repo is unchanged — click push again to retry the whole queue.',
                perFileErrors: [],
                doneFiles, failedFiles, pendingFiles
              });
-             // Drop committed files from the queue; keep error/pending ones
-             // so clicking push again only retries what didn't make it.
              fileState = fileState.filter(f => f.status !== 'done');
              renderQueue();
            }
@@ -1850,11 +1920,11 @@
          const organizerStatus = document.getElementById('organizerStatus');
          const organizerBody = document.getElementById('organizerBody');
 
-         let repoTree = [];       // flat list of { path, sha } for every file in the repo
+         let repoTree = [];       // flat list of { path, sha, size } for every file in the repo
          let repoTreeLoadedFor = null; // which repo full_name the tree belongs to
-         let selectedPaths = new Set();
-         let selectedFolders = new Set(); // top-level folder names checked for batch deletion
+         let selectedPaths = new Set();   // UNIFIED selection: file paths AND folder names, one set, one model
          let collapsedFolders = new Set(); // folder paths currently collapsed in the UI
+         let organizerFilter = '';         // live search text
 
          organizeBtn.addEventListener('click', async () => {
            const repo = repoSelect.value;
@@ -1872,6 +1942,7 @@
          async function loadRepoTree(repo) {
            selectedPaths = new Set();
            repoTree = [];
+           organizerFilter = '';
            organizerBody.innerHTML = '';
            organizerStatus.style.display = 'flex';
            organizerStatus.innerHTML = spinnerHtml('Loading repository tree...');
@@ -1927,14 +1998,9 @@
          }
 
          // Group the flat file list by their TOP-LEVEL folder (first path
-         // segment) so the UI offers a single "delete this folder" action
+         // segment) so the UI offers a single "select this folder" checkbox
          // that covers everything nested underneath it — not just files
-         // that happen to sit directly inside it. Grouping by immediate
-         // parent instead would split deeply-nested repos (Next.js's
-         // components/ui, components/forms, app/(dashboard)/settings,
-         // etc.) into many leaf-level groups, forcing repeated clicks that
-         // look like file-by-file deletion even though each click is
-         // still a single-commit folder delete.
+         // that happen to sit directly inside it.
          function groupByFolder(files) {
            const groups = new Map();
            const rootFiles = [];
@@ -1951,19 +2017,41 @@
            return { rootFiles, groups };
          }
 
+         // Every row — file or folder — lives in ONE Set (selectedPaths).
+         // A folder's key is stored as "folder/" (trailing slash) so it can
+         // never collide with a real file path. This is what makes "select
+         // all" actually mean all: there is only one kind of selection, so
+         // one call can populate it completely, and the one delete action
+         // at the bottom always sees the true, complete set.
+         const folderKey = (folder) => `${folder}/`;
+
          function fileRowHtml(f) {
            const checked = selectedPaths.has(f.path) ? 'checked' : '';
            const lastSlash = f.path.lastIndexOf('/');
            const dirPart = lastSlash >= 0 ? escapeHtml(f.path.slice(0, lastSlash + 1)) : '';
            const namePart = escapeHtml(lastSlash >= 0 ? f.path.slice(lastSlash + 1) : f.path);
            return `
-           <label class="organizer-row">
+           <label class="organizer-row${checked ? ' is-selected' : ''}" data-path="${escapeHtml(f.path)}">
              <input type="checkbox" data-path="${escapeHtml(f.path)}" ${checked} onchange="window.toggleOrganizerPath(this)">
              <span class="organizer-row-path"><span class="dir-part">${dirPart}</span>${namePart}</span>
+             <span class="organizer-row-size">${formatSize(f.size || 0)}</span>
              <button type="button" class="organizer-row-del" title="Delete this file" onclick="window.organizerDeleteOne('${escapeHtml(f.path).replace(/'/g, "\\'")}')">
                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
              </button>
            </label>`;
+         }
+
+         // A folder's checkbox state is derived — never stored separately —
+         // from whether every one of its files is in selectedPaths (or the
+         // folder key itself is, for an empty/placeholder folder). This is
+         // what keeps "select all" / "select folder" / individual file
+         // checkboxes from ever disagreeing with each other.
+         function isFolderFullySelected(folder, files) {
+           return files.length > 0 && files.every(f => selectedPaths.has(f.path));
+         }
+         function isFolderPartiallySelected(folder, files) {
+           const some = files.some(f => selectedPaths.has(f.path));
+           return some && !isFolderFullySelected(folder, files);
          }
 
          function renderOrganizer() {
@@ -1972,85 +2060,133 @@
              return;
            }
 
-           const sorted = [...repoTree].sort((a, b) => a.path.localeCompare(b.path));
+           const filterText = organizerFilter.trim().toLowerCase();
+           const visible = filterText
+             ? repoTree.filter(f => f.path.toLowerCase().includes(filterText))
+             : repoTree;
+
+           const sorted = [...visible].sort((a, b) => a.path.localeCompare(b.path));
            const { rootFiles, groups } = groupByFolder(sorted);
            const folderNames = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+
+           const totalSelected = selectedPaths.size > 0
+             ? repoTree.filter(f => selectedPaths.has(f.path)).length
+             : 0;
 
            const rootRows = rootFiles.map(fileRowHtml).join('');
 
            const folderBlocks = folderNames.map(folder => {
              const files = groups.get(folder);
              const isCollapsed = collapsedFolders.has(folder);
-             const isChecked = selectedFolders.has(folder);
+             const fullySelected = isFolderFullySelected(folder, files);
+             const partial = isFolderPartiallySelected(folder, files);
              const rows = files.map(fileRowHtml).join('');
              return `
              <div class="organizer-folder" data-folder="${escapeHtml(folder)}">
                <div class="organizer-folder-head">
-                 <input type="checkbox" class="organizer-folder-checkbox" data-folder="${escapeHtml(folder)}" ${isChecked ? 'checked' : ''} onchange="window.toggleOrganizerFolder(this)" title="Select this folder for batch delete">
+                 <input type="checkbox" class="organizer-folder-checkbox" data-folder="${escapeHtml(folder)}"
+                   ${fullySelected ? 'checked' : ''} ${partial ? 'data-indeterminate="1"' : ''}
+                   onchange="window.toggleOrganizerFolder(this)" title="Select this whole folder">
                  <button type="button" class="organizer-folder-toggle" onclick="window.organizerToggleFolder('${escapeHtml(folder).replace(/'/g, "\\'")}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">
                    <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transform: rotate(${isCollapsed ? '-90' : '0'}deg); transition: transform .15s;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path></svg>
                  </button>
-                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="flex-shrink:0; color:var(--text-faint);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"></path></svg>
-                 <span class="organizer-folder-name">${escapeHtml(folder)}/</span>
+                 <span class="organizer-folder-name" onclick="window.organizerToggleFolder('${escapeHtml(folder).replace(/'/g, "\\'")}')">${escapeHtml(folder)}/</span>
                  <span class="organizer-folder-count">${files.length} file${files.length === 1 ? '' : 's'}</span>
-                 <button type="button" class="organizer-folder-del" title="Delete this whole folder in one commit" onclick="window.organizerDeleteFolder('${escapeHtml(folder).replace(/'/g, "\\'")}')">
-                   <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
-                   Delete folder
-                 </button>
                </div>
                <div class="organizer-folder-rows" style="display:${isCollapsed ? 'none' : 'flex'};">${rows}</div>
              </div>`;
            }).join('');
 
-           const folderSelectionBar = selectedFolders.size > 0 ? `
-             <div class="organizer-folder-selection-bar" style="display:flex; align-items:center; gap:10px; padding:8px 0;">
-               <span class="organizer-count-pill">${selectedFolders.size} folder${selectedFolders.size === 1 ? '' : 's'} selected</span>
-               <button type="button" class="organizer-delete-btn" id="organizerDeleteFoldersBtn" onclick="window.organizerDeleteSelectedFolders()">
-                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
-                 Delete selected folders (1 commit)
-               </button>
-               <button class="organizer-select-link" onclick="window.organizerClearFolderSelection()">clear</button>
-             </div>` : '';
+           const hasAnyVisible = rootFiles.length > 0 || folderNames.length > 0;
 
            organizerBody.innerHTML = `
-             <div class="organizer-controls-row">
-               <span class="organizer-count-pill" id="organizerCountPill">${selectedPaths.size} selected</span>
-               <div style="display:flex; gap:12px;">
-                 <button class="organizer-select-link" onclick="window.organizerSelectAll()">select all</button>
-                 <button class="organizer-select-link" onclick="window.organizerSelectNone()">clear</button>
+             <div class="organizer-toolbar">
+               <div class="organizer-search-wrap">
+                 <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M18 11a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                 <input type="text" id="organizerSearchInput" placeholder="Filter files by name or path..." value="${escapeHtml(organizerFilter)}" oninput="window.organizerSetFilter(this.value)">
+                 ${organizerFilter ? `<button type="button" class="organizer-search-clear" onclick="window.organizerSetFilter('')" title="Clear filter"><svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>` : ''}
                </div>
              </div>
-             ${folderSelectionBar}
-             <div class="organizer-list">${rootRows}${folderBlocks}</div>
+             <div class="organizer-controls-row">
+               <label class="organizer-select-all-chip">
+                 <input type="checkbox" id="organizerSelectAllBox" ${totalSelected === repoTree.length && repoTree.length > 0 ? 'checked' : ''} onchange="window.organizerToggleSelectAll(this)">
+                 Select all${filterText ? ' (filtered)' : ''}
+               </label>
+               <span class="organizer-count-pill${totalSelected > 0 ? ' has-selection' : ''}" id="organizerCountPill">${totalSelected} of ${repoTree.length} selected</span>
+               <button class="organizer-select-link" onclick="window.organizerSelectNone()">clear</button>
+             </div>
+             <div class="organizer-list" id="organizerListEl">${hasAnyVisible ? `${rootRows}${folderBlocks}` : `<div class="organizer-row-empty-filter">No files match "${escapeHtml(organizerFilter)}"</div>`}</div>
              <div class="organizer-move-row">
                <input type="text" id="organizerFolderInput" placeholder="folder name, e.g. css">
                <button class="organizer-move-btn" id="organizerMoveBtn" onclick="window.organizerMoveSelected()">
                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                 Move
+                 Move selected
                </button>
              </div>
              <div class="organizer-danger-row">
-               <button type="button" class="organizer-delete-btn" id="organizerDeleteSelectedBtn" onclick="window.organizerDeleteSelected()">
+               <button type="button" class="organizer-delete-btn" id="organizerDeleteSelectedBtn" onclick="window.organizerDeleteSelected()" ${totalSelected === 0 ? 'disabled' : ''}>
                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
-                 Delete selected
+                 Delete selected (${totalSelected}) — 1 commit
                </button>
                <button type="button" class="organizer-delete-btn organizer-delete-all-btn" id="organizerDeleteAllBtn" onclick="window.organizerDeleteAll()">
                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"></path></svg>
                  Delete ALL files
                </button>
              </div>`;
+
+           // Apply indeterminate state to folder checkboxes (can't be set via HTML attribute).
+           organizerBody.querySelectorAll('.organizer-folder-checkbox[data-indeterminate="1"]').forEach(cb => { cb.indeterminate = true; });
          }
+
+         window.organizerSetFilter = (value) => {
+           organizerFilter = value;
+           renderOrganizer();
+           // Re-focus + restore cursor position so typing isn't interrupted by the re-render.
+           const input = document.getElementById('organizerSearchInput');
+           if (input) { input.focus(); const v = input.value; input.value = ''; input.value = v; }
+         };
 
          window.toggleOrganizerPath = (checkbox) => {
            const path = checkbox.getAttribute('data-path');
            if (checkbox.checked) selectedPaths.add(path);
            else selectedPaths.delete(path);
-           const pill = document.getElementById('organizerCountPill');
-           if (pill) pill.textContent = `${selectedPaths.size} selected`;
+           renderOrganizer();
          };
 
-         window.organizerSelectAll = () => {
-           selectedPaths = new Set(repoTree.map(f => f.path));
+         // One checkbox toggles every file under that folder, all in the
+         // SAME selectedPaths set everything else uses — so a folder you
+         // just checked is immediately part of "select all" / "delete
+         // selected", with no separate folder-only selection to forget.
+         window.toggleOrganizerFolder = (checkbox) => {
+           const folder = checkbox.getAttribute('data-folder');
+           const files = repoTree.filter(f => f.path === folder || f.path.startsWith(`${folder}/`));
+           if (checkbox.checked) {
+             files.forEach(f => selectedPaths.add(f.path));
+           } else {
+             files.forEach(f => selectedPaths.delete(f.path));
+           }
+           renderOrganizer();
+         };
+
+         // Expand/collapse is purely visual — it never touches selection,
+         // so collapsing a folder can never hide files out of a delete.
+         window.organizerToggleFolder = (folder) => {
+           if (collapsedFolders.has(folder)) collapsedFolders.delete(folder);
+           else collapsedFolders.add(folder);
+           renderOrganizer();
+         };
+
+         // Selects/clears EVERY currently-visible file (respecting the
+         // active search filter) in one go — files AND everything inside
+         // every folder, because they all live in the one selectedPaths set.
+         window.organizerToggleSelectAll = (checkbox) => {
+           const filterText = organizerFilter.trim().toLowerCase();
+           const visible = filterText ? repoTree.filter(f => f.path.toLowerCase().includes(filterText)) : repoTree;
+           if (checkbox.checked) {
+             visible.forEach(f => selectedPaths.add(f.path));
+           } else {
+             visible.forEach(f => selectedPaths.delete(f.path));
+           }
            renderOrganizer();
          };
          window.organizerSelectNone = () => {
@@ -2059,7 +2195,7 @@
          };
 
          // ══════════════════════════════════════════════════════════
-         // DELETE FILES (single / selected / all / folder)
+         // DELETE FILES (single / selected-including-folders / all)
          // ══════════════════════════════════════════════════════════
          async function deleteOneFile(repo, f) {
            const res = await fetch(API_URL, {
@@ -2095,118 +2231,11 @@
            }
          };
 
-         window.organizerToggleFolder = (folder) => {
-           if (collapsedFolders.has(folder)) collapsedFolders.delete(folder);
-           else collapsedFolders.add(folder);
-           renderOrganizer();
-         };
-
-         // Checking a folder's checkbox adds it to a batch-delete selection
-         // instead of deleting it immediately — this is what lets you pick
-         // several folders before deleting any of them.
-         window.toggleOrganizerFolder = (checkbox) => {
-           const folder = checkbox.getAttribute('data-folder');
-           if (checkbox.checked) selectedFolders.add(folder);
-           else selectedFolders.delete(folder);
-           renderOrganizer();
-         };
-
-         window.organizerClearFolderSelection = () => {
-           selectedFolders = new Set();
-           renderOrganizer();
-         };
-
-         // Deletes every checked folder (and everything nested under each)
-         // in a SINGLE commit, however many folders are selected — it just
-         // expands the selection to the full set of file paths under those
-         // folders and hands them to the same deletePaths backend route
-         // that organizerDeleteSelected/organizerDeleteAll use.
-         window.organizerDeleteSelectedFolders = async () => {
-           const repo = repoSelect.value;
-           if (!repo) return showToast('Select a repository first', 'bad');
-           if (selectedFolders.size === 0) return showToast('Check at least one folder', 'bad');
-
-           const folders = [...selectedFolders];
-           const targets = repoTree.filter(f => folders.some(folder => f.path.startsWith(`${folder}/`)));
-           if (targets.length === 0) return showToast('No files found in the selected folders', 'bad');
-
-           const folderList = folders.map(f => `${f}/`).join(', ');
-           if (!confirm(`Delete ${folders.length} folder${folders.length === 1 ? '' : 's'} (${folderList}) — ${targets.length} file${targets.length === 1 ? '' : 's'} total — in ONE commit? This cannot be undone.`)) return;
-
-           const delBtn = document.getElementById('organizerDeleteSelectedBtn');
-           const delAllBtn = document.getElementById('organizerDeleteAllBtn');
-           const delFoldersBtn = document.getElementById('organizerDeleteFoldersBtn');
-           if (delBtn) delBtn.disabled = true;
-           if (delAllBtn) delAllBtn.disabled = true;
-           if (delFoldersBtn) delFoldersBtn.disabled = true;
-           organizerStatus.style.display = 'flex';
-           organizerStatus.innerHTML = spinnerHtml(`Deleting ${folders.length} folder${folders.length === 1 ? '' : 's'} (${targets.length} file${targets.length === 1 ? '' : 's'}, 1 commit)...`);
-
-           try {
-             const data = await deleteManyInOneCommit(repo, targets.map(f => f.path));
-             await reloadOrganizerFromGitHub(repo);
-             const remaining = new Set(repoTree.map(f => f.path));
-             const stillPresent = targets.filter(f => remaining.has(f.path));
-             if (stillPresent.length) throw new Error(`GitHub still reports ${stillPresent.length} file(s); deletion was not verified.`);
-             renderOrganizer();
-             showToast(`Deleted ${data.deletedCount ?? targets.length} file${(data.deletedCount ?? targets.length) === 1 ? '' : 's'} in ${folders.length} folder${folders.length === 1 ? '' : 's'} (verified on GitHub)`, 'good');
-           } catch (err) {
-             showToast(err.message || 'Folder delete failed', 'bad');
-           } finally {
-             organizerStatus.style.display = 'none';
-             if (delBtn) delBtn.disabled = false;
-             if (delAllBtn) delAllBtn.disabled = false;
-             if (delFoldersBtn) delFoldersBtn.disabled = false;
-           }
-         };
-
-         // Deletes an entire folder (and everything nested inside it) in a
-         // SINGLE commit via the backend's Git Trees API route, instead of
-         // looping deleteOneFile() across every file in the folder.
-         window.organizerDeleteFolder = async (folder) => {
-           const repo = repoSelect.value;
-           if (!repo) return showToast('Select a repository first', 'bad');
-           const count = repoTree.filter(f => f.path.startsWith(`${folder}/`)).length;
-           if (count === 0) return showToast('No files found in that folder', 'bad');
-           if (!confirm(`Delete the entire folder "${folder}/" (${count} file${count === 1 ? '' : 's'})? This happens in one commit and cannot be undone.`)) return;
-
-           organizerStatus.style.display = 'flex';
-           organizerStatus.innerHTML = spinnerHtml(`Deleting folder ${folder}/ (${count} file${count === 1 ? '' : 's'} in one commit)...`);
-           const delBtn = document.getElementById('organizerDeleteSelectedBtn');
-           const delAllBtn = document.getElementById('organizerDeleteAllBtn');
-           if (delBtn) delBtn.disabled = true;
-           if (delAllBtn) delAllBtn.disabled = true;
-
-           try {
-             const res = await fetch(API_URL, {
-               method: 'DELETE',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ repo, path: folder, deleteFolder: true, branch: currentBranch() })
-             });
-             if (!res.ok) {
-               const err = await res.json().catch(() => ({}));
-               throw new Error(err.error || `Failed to delete folder ${folder}`);
-             }
-             const data = await res.json();
-             await reloadOrganizerFromGitHub(repo);
-             const remaining = new Set(repoTree.map(f => f.path));
-             const stillPresent = [...remaining].filter(p => p.startsWith(`${folder}/`));
-             if (stillPresent.length) throw new Error(`GitHub still reports ${stillPresent.length} file(s) in ${folder}/; deletion was not verified.`);
-             collapsedFolders.delete(folder);
-             renderOrganizer();
-             showToast(`Deleted folder ${folder}/ (${data.deletedCount ?? count} files, verified on GitHub)`, 'good');
-           } catch (err) {
-             showToast(err.message || 'Folder delete failed', 'bad');
-           } finally {
-             organizerStatus.style.display = 'none';
-             if (delBtn) delBtn.disabled = false;
-             if (delAllBtn) delAllBtn.disabled = false;
-           }
-         };
-
          // Deletes a set of paths in a SINGLE commit via the backend's Git
-         // Trees API route (same approach as organizerDeleteFolder above),
-         // instead of looping deleteOneFile() once per path.
+         // Trees API route. Used by both "Delete selected" (any mix of
+         // individually-checked files and whole checked folders — they're
+         // already expanded into plain paths by the time they reach here)
+         // and the one-by-one delete button.
          async function deleteManyInOneCommit(repo, paths) {
            const res = await fetch(API_URL, {
              method: 'DELETE',
@@ -2233,16 +2262,32 @@
            repoTree = data.files;
            repoTreeLoadedFor = repo;
            selectedPaths = new Set();
-           selectedFolders = new Set();
            return repoTree;
          }
 
+         // Single entry point for deleting whatever is checked right now —
+         // whether that's a handful of individual files, one or more whole
+         // folders (checked via their folder checkbox), or literally every
+         // file via "select all". Because selection is one Set, this one
+         // function and one backend call covers every case; there is no
+         // separate "delete selected folders" path to get out of sync with it.
          window.organizerDeleteSelected = async () => {
            const repo = repoSelect.value;
            if (!repo) return showToast('Select a repository first', 'bad');
-           if (selectedPaths.size === 0) return showToast('Checkbox at least one file', 'bad');
+           if (selectedPaths.size === 0) return showToast('Check at least one file or folder first', 'bad');
 
            const targets = repoTree.filter(f => selectedPaths.has(f.path));
+           if (targets.length === 0) return showToast('Nothing matching your selection was found — try reloading repo files', 'bad');
+
+           // Selecting literally everything is functionally a delete-all;
+           // route it the same way as the explicit "Delete ALL files"
+           // button so it gets that button's stronger typed confirmation
+           // instead of the lighter one-click confirm used for partial
+           // selections.
+           if (targets.length === repoTree.length) {
+             return window.organizerDeleteAll();
+           }
+
            if (!confirm(`Delete ${targets.length} selected file${targets.length === 1 ? '' : 's'} in one commit? This cannot be undone.`)) return;
 
            const delBtn = document.getElementById('organizerDeleteSelectedBtn');
@@ -2311,6 +2356,7 @@
              if (delAllBtn) delAllBtn.disabled = false;
            }
          };
+
 
          window.organizerMoveSelected = async () => {
            const repo = repoSelect.value;
