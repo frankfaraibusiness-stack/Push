@@ -574,13 +574,22 @@
          }
          .organizer-status svg.spin { flex-shrink: 0; color: var(--accent); }
          .organizer-list {
-         max-height: 360px;
+         max-height: min(60vh, 460px);
          overflow-y: auto;
+         overflow-x: hidden;
+         -webkit-overflow-scrolling: touch;
+         overscroll-behavior: contain;
+         touch-action: pan-y;
          display: flex;
          flex-direction: column;
          gap: 2px;
          margin-bottom: 12px;
+         padding-right: 2px;
          }
+         /* Folder blocks have overflow:hidden, which lets flex shrink them
+            to fit the max-height instead of overflowing it — that squashed
+            the list so it never needed (or got) a scrollbar. Never shrink. */
+         .organizer-list > * { flex-shrink: 0; }
          .organizer-row {
          display: flex;
          align-items: center;
