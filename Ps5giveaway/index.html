@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Sony PlayStation 5 Giveaway — Official Entry</title>
+  <style>
+    /* ===== RESET & BASE ===== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      background-color: #f5f7fa;
+      color: #1e293b;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== STICKY HEADER ===== */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #0f172a;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: #0f172a;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+
+    .brand-logo svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+    }
+
+    .brand-name span {
+      color: #0066ff;
+    }
+
+    .header-cta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .cta-button {
+      background: #0066ff;
+      color: #ffffff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 1px 2px rgba(0, 102, 255, 0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .cta-button:hover:not(:disabled) {
+      background: #0052d9;
+      box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+    }
+
+    .cta-button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .cta-button:disabled {
+      background: #cbd5e1;
+      color: #94a3b8;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* ===== FULL WIDTH IMAGE ===== */
+    .hero-image-section {
+      width: 100%;
+      background: #0f172a;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-image-section img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 520px;
+      object-fit: cover;
+      object-position: center 30%;
+    }
+
+    /* ===== MAIN CONTENT ===== */
+    .page-container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    .content-card {
+      background: #ffffff;
+      border-radius: 20px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+      padding: 40px;
+      margin-top: -60px;
+      position: relative;
+      z-index: 10;
+    }
+
+    @media (max-width: 640px) {
+      .content-card {
+        padding: 24px 20px;
+        margin-top: -30px;
+        border-radius: 16px;
+      }
+    }
+
+    /* ===== TYPOGRAPHY & SECTIONS ===== */
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .section-subtitle {
+      font-size: 0.95rem;
+      color: #64748b;
+      margin-bottom: 28px;
+    }
+
+    /* ===== STATS GRID ===== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    @media (max-width: 640px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stat-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .stat-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #eff6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-icon svg {
+      width: 20px;
+      height: 20px;
+      color: #0066ff;
+    }
+
+    .stat-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+
+    /* ===== CHALLENGE AREA ===== */
+    .challenge-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .challenge-box {
+        padding: 20px 16px;
+      }
+    }
+
+    .challenge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .challenge-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .challenge-rule {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 100px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .badge svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    /* counters */
+    .counters-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .counter-block {
+      flex: 1;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 18px;
+      text-align: center;
+    }
+
+    .counter-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .counter-value {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .counter-value small {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    /* progress */
+    .progress-track {
+      height: 10px;
+      background: #e2e8f0;
+      border-radius: 100px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0066ff, #00a3ff);
+      border-radius: 100px;
+      transition: width 0.1s ease;
+    }
+
+    /* buttons */
+    .action-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      flex: 2 1 260px;
+      background: #0066ff;
+      color: #ffffff;
+      border: none;
+      padding: 18px 24px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 2px 8px rgba(0, 102, 255, 0.25);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #0052d9;
+      box-shadow: 0 6px 18px rgba(0, 102, 255, 0.3);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: scale(0.985);
+    }
+
+    .btn-primary:disabled {
+      background: #cbd5e1;
+      color: #94a3b8;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      flex: 1 1 160px;
+      background: #ffffff;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      padding: 18px 24px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-secondary:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.985);
+    }
+
+    .status-message {
+      margin-top: 18px;
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #475569;
+      text-align: center;
+      min-height: 1.5rem;
+    }
+
+    .status-message.success {
+      color: #059669;
+      font-weight: 700;
+    }
+
+    .status-message.error {
+      color: #dc2626;
+    }
+
+    .status-message.redirect {
+      color: #b45309;
+      font-weight: 600;
+    }
+
+    /* ===== TRUST / LEGIT INFO ===== */
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 32px;
+    }
+
+    @media (max-width: 640px) {
+      .trust-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+    }
+
+    .trust-item svg {
+      width: 20px;
+      height: 20px;
+      color: #0066ff;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .trust-item-text h4 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+
+    .trust-item-text p {
+      font-size: 0.8rem;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* ===== FOOTER NOTE ===== */
+    .footer-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+      line-height: 1.6;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal-box {
+      background: #ffffff;
+      border-radius: 18px;
+      max-width: 440px;
+      width: 100%;
+      padding: 32px;
+      box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.4);
+      transform: translateY(12px) scale(0.98);
+      transition: transform 0.2s ease;
+      position: relative;
+    }
+
+    .modal-overlay.active .modal-box {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: #f1f5f9;
+      border: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+
+    .modal-close:hover {
+      background: #e2e8f0;
+    }
+
+    .modal-close svg {
+      width: 16px;
+      height: 16px;
+      color: #64748b;
+    }
+
+    .modal-icon {
+      width: 48px;
+      height: 48px;
+      background: #eff6ff;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    .modal-icon svg {
+      width: 24px;
+      height: 24px;
+      color: #0066ff;
+    }
+
+    .modal-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+
+    .modal-text {
+      font-size: 0.92rem;
+      color: #475569;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .modal-text strong {
+      color: #0f172a;
+    }
+
+    .modal-detail {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.88rem;
+      color: #334155;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-detail svg {
+      width: 18px;
+      height: 18px;
+      color: #059669;
+      flex-shrink: 0;
+    }
+
+    .modal-confirm {
+      width: 100%;
+      background: #0066ff;
+      color: #ffffff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .modal-confirm:hover {
+      background: #0052d9;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== STICKY HEADER ===== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="brand" aria-label="PS5 Giveaway home">
+        <span class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6.5 8.5C6.5 7.67 7.17 7 8 7H16C16.83 7 17.5 7.67 17.5 8.5V9H18.5C19.33 9 20 9.67 20 10.5V13.5C20 14.33 19.33 15 18.5 15H17.5V16C17.5 16.83 16.83 17.5 16 17.5H8C7.17 17.5 6.5 16.83 6.5 16V15H5.5C4.67 15 4 14.33 4 13.5V10.5C4 9.67 4.67 9 5.5 9H6.5V8.5Z" stroke="white" stroke-width="1.5"/>
+            <circle cx="9.5" cy="12" r="1" fill="white"/>
+            <circle cx="14.5" cy="12" r="1" fill="white"/>
+          </svg>
+        </span>
+        <span class="brand-name">PS5 <span>Giveaway</span></span>
+      </a>
+
+      <div class="header-cta">
+        <button class="cta-button" id="contactCta" disabled aria-disabled="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          CONTACT US
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== FULL WIDTH HERO IMAGE ===== -->
+  <section class="hero-image-section" aria-label="PlayStation 5 console">
+    <img
+      src="https://cdn.mos.cms.futurecdn.net/v2/t:0,l:420,cw:1080,ch:1080,q:80,w:1080/HkdMToxijoHfz4JwUgfh3G.jpg"
+      alt="Sony PlayStation 5 console"
+      width="1080"
+      height="1080"
+    />
+  </section>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="page-container">
+    <div class="content-card">
+
+      <h2 class="section-title">Enter to win a PlayStation 5</h2>
+      <p class="section-subtitle">Official giveaway entry — no purchase necessary. Complete the click challenge below to qualify.</p>
+
+      <!-- LIVE STATS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Users online</span>
+            <span class="stat-value" id="onlineUsers">1,248</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Trying now</span>
+            <span class="stat-value" id="tryingUsers">312</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="7"/>
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+            </svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-label">Winners today</span>
+            <span class="stat-value">23</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHALLENGE -->
+      <div class="challenge-box">
+        <div class="challenge-header">
+          <div>
+            <div class="challenge-title">Click Challenge</div>
+            <div class="challenge-rule">Reach 1,000 clicks within 100 seconds to unlock your reward.</div>
+          </div>
+          <span class="badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            LIVE ENTRY
+          </span>
+        </div>
+
+        <div class="counters-row">
+          <div class="counter-block">
+            <div class="counter-label">Clicks</div>
+            <div class="counter-value" id="clickDisplay">0<small>/1000</small></div>
+          </div>
+          <div class="counter-block">
+            <div class="counter-label">Time remaining</div>
+            <div class="counter-value" id="timerDisplay">100<small>s</small></div>
+          </div>
+        </div>
+
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="action-row">
+          <button class="btn-primary" id="clickButton">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11V6a3 3 0 0 1 6 0v5"/>
+              <path d="M9 11l-2.5 4.5a3 3 0 0 0 2.7 4.5h5.6a3 3 0 0 0 2.7-4.5L15 11"/>
+            </svg>
+            CLICK TO ENTER
+          </button>
+          <button class="btn-secondary" id="restartButton">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            Restart
+          </button>
+        </div>
+
+        <div class="status-message" id="messageArea">Press CLICK TO ENTER to begin the challenge.</div>
+      </div>
+
+      <!-- TRUST / LEGIT INFO -->
+      <div class="trust-grid">
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+          <div class="trust-item-text">
+            <h4>Secure & Verified</h4>
+            <p>All entries are validated through our encrypted system.</p>
+          </div>
+        </div>
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13" rx="1"/>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+            <circle cx="5.5" cy="18.5" r="2.5"/>
+            <circle cx="18.5" cy="18.5" r="2.5"/>
+          </svg>
+          <div class="trust-item-text">
+            <h4>Free Shipping</h4>
+            <p>Winner receives a brand-new PS5 with free delivery worldwide.</p>
+          </div>
+        </div>
+        <div class="trust-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          <div class="trust-item-text">
+            <h4>4.9 / 5 Rating</h4>
+            <p>Based on 2,300+ verified participant reviews.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        This promotion is not affiliated with Sony Interactive Entertainment. PlayStation and PS5 are trademarks of Sony. <br>
+        No purchase necessary. Void where prohibited. Must be 18 or older to enter.
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ===== CONTACT US MODAL ===== -->
+  <div class="modal-overlay" id="contactModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-box">
+      <button class="modal-close" id="modalClose" aria-label="Close contact dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div class="modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+      </div>
+      <h3 class="modal-title" id="modalTitle">Contact Us</h3>
+      <p class="modal-text">
+        Thank you for completing the challenge. You have unlocked priority support. A giveaway representative will contact you shortly using the details on file.
+      </p>
+      <div class="modal-detail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span>Support ticket <strong>#PS5-8823</strong> has been created.</span>
+      </div>
+      <p class="modal-text" style="margin-bottom: 20px;">
+        You can also reach our team at <strong>support@ps5-giveaway.example</strong>. We typically respond within 24 hours.
+      </p>
+      <button class="modal-confirm" id="modalConfirm">Got it</button>
+    </div>
+  </div>
+
+  <!-- ===== AD SCRIPTS (as provided) ===== -->
+  <script>
+    (function(s){
+      s.dataset.zone='10994494',
+      s.src='https://n6wxm.com/vignette.min.js'
+    })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+  </script>
+  <script>
+    (function(s){
+      s.dataset.zone='12287934',
+      s.src='https://n6wxm.com/vignette.min.js'
+    })([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+  </script>
+  <script src="https://5gvci.com/act/files/tag.min.js?z=10994493" data-cfasync="false" async></script>
+
+  <script>
+    (function () {
+      // ===== CONSTANTS =====
+      const TARGET_CLICKS = 1000;
+      const INITIAL_TIME = 100;
+      const REDIRECT_EVERY = 50;
+      const REDIRECT_LINKS = [
+        'https://uplcm.com/4/7165724',
+        'https://uplcm.com/4/8272145'
+      ];
+
+      // ===== STATE =====
+      let clicks = 0;
+      let timeLeft = INITIAL_TIME;
+      let timerInterval = null;
+      let isActive = false;
+      let hasWon = false;
+      let contactUnlocked = false;
+      let redirectLock = false;
+      let nextRedirectAt = REDIRECT_EVERY;
+      let lastRedirectLinkIndex = 0;
+      let timerSpeedFactor = 1; // 1 = normal, >1 speeds up
+
+      // ===== DOM =====
+      const clickButton = document.getElementById('clickButton');
+      const restartButton = document.getElementById('restartButton');
+      const clickDisplay = document.getElementById('clickDisplay');
+      const timerDisplay = document.getElementById('timerDisplay');
+      const progressFill = document.getElementById('progressFill');
+      const messageArea = document.getElementById('messageArea');
+      const onlineUsersSpan = document.getElementById('onlineUsers');
+      const tryingUsersSpan = document.getElementById('tryingUsers');
+      const contactCta = document.getElementById('contactCta');
+      const contactModal = document.getElementById('contactModal');
+      const modalClose = document.getElementById('modalClose');
+      const modalConfirm = document.getElementById('modalConfirm');
+
+      // ===== PERSISTENCE (localStorage) =====
+      const STORAGE_KEY = 'ps5_giveaway_challenge_state';
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            clicks: clicks,
+            timeLeft: timeLeft,
+            hasWon: hasWon,
+            contactUnlocked: contactUnlocked,
+            nextRedirectAt: nextRedirectAt,
+            lastRedirectLinkIndex: lastRedirectLinkIndex,
+            savedAt: Date.now()
+          }));
+        } catch (e) { /* storage may be unavailable */ }
+      }
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const data = JSON.parse(raw);
+          if (typeof data.clicks === 'number' && typeof data.timeLeft === 'number') {
+            clicks = Math.min(data.clicks, TARGET_CLICKS);
+            timeLeft = Math.min(Math.max(data.timeLeft, 0), INITIAL_TIME);
+            hasWon = !!data.hasWon;
+            contactUnlocked = !!data.contactUnlocked;
+            nextRedirectAt = data.nextRedirectAt || REDIRECT_EVERY;
+            lastRedirectLinkIndex = data.lastRedirectLinkIndex || 0;
+            return true;
+          }
+        } catch (e) { /* ignore */ }
+        return false;
+      }
+
+      function clearState() {
+        try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+      }
+
+      // ===== HELPERS =====
+      function updateUI() {
+        clickDisplay.innerHTML = clicks + '<small>/' + TARGET_CLICKS + '</small>';
+        timerDisplay.innerHTML = timeLeft + '<small>s</small>';
+        const percent = Math.min((clicks / TARGET_CLICKS) * 100, 100);
+        progressFill.style.width = percent + '%';
+      }
+
+      function unlockContact() {
+        if (contactUnlocked) return;
+        contactUnlocked = true;
+        contactCta.disabled = false;
+        contactCta.setAttribute('aria-disabled', 'false');
+        saveState();
+      }
+
+      function setWonState() {
+        hasWon = true;
+        isActive = false;
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        clickButton.disabled = true;
+        clickButton.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg> CHALLENGE COMPLETE';
+        messageArea.className = 'status-message success';
+        messageArea.textContent = 'Congratulations! You reached 1,000 clicks. Your entry is confirmed. Contact support using the button above.';
+        unlockContact();
+        saveState();
+      }
+
+      function resetGame() {
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        clicks = 0;
+        timeLeft = INITIAL_TIME;
+        isActive = false;
+        hasWon = false;
+        redirectLock = false;
+        nextRedirectAt = REDIRECT_EVERY;
+        lastRedirectLinkIndex = 0;
+        timerSpeedFactor = 1;
+        clickButton.disabled = false;
+        clickButton.innerHTML =
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M9 11V6a3 3 0 0 1 6 0v5"/><path d="M9 11l-2.5 4.5a3 3 0 0 0 2.7 4.5h5.6a3 3 0 0 0 2.7-4.5L15 11"/></svg> CLICK TO ENTER';
+        updateUI();
+        messageArea.className = 'status-message';
+        messageArea.textContent = 'Press CLICK TO ENTER to begin the challenge.';
+        // Note: contactUnlocked is intentionally NOT reset here to keep unlock persistent.
+        // But we do NOT clear the stored contact unlock. Fine.
+        saveState();
+      }
+
+      function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        isActive = true;
+        clickButton.disabled = false;
+        timerInterval = setInterval(function () {
+          if (!isActive) return;
+          // Determine how much time to subtract based on progress (speeds up near 1k)
+          let decrement = 1;
+          if (clicks >= 700 && clicks < 900) decrement = 2;
+          else if (clicks >= 900) decrement = 3;
+          else if (clicks >= 500) decrement = 1; // keep 1 until 700
+          timeLeft -= decrement;
+          if (timeLeft < 0) timeLeft = 0;
+          updateUI();
+          saveState();
+          if (timeLeft <= 0) {
+            isActive = false;
+            clearInterval(timerInterval);
+            timerInterval = null;
+            clickButton.disabled = true;
+            if (!hasWon) {
+              messageArea.className = 'status-message error';
+              messageArea.textContent = 'Time is up. You did not reach 1,000 clicks. Press Restart to try again.';
+            }
+            saveState();
+          }
+        }, 1000);
+      }
+
+      // ===== REDIRECT LOGIC =====
+      function handleRedirect() {
+        if (redirectLock) return;
+        redirectLock = true;
+
+        // Stop timer, disable click button
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        isActive = false;
+        clickButton.disabled = true;
+
+        // Update message
+        messageArea.className = 'status-message redirect';
+        messageArea.textContent = 'Redirecting you to a sponsored offer. Your progress is saved...';
+
+        // Save state BEFORE redirecting
+        saveState();
+
+        // Determine which link to use (alternate)
+        const link = REDIRECT_LINKS[lastRedirectLinkIndex % REDIRECT_LINKS.length];
+        lastRedirectLinkIndex++;
+        // advance next redirect threshold
+        nextRedirectAt += REDIRECT_EVERY;
+
+        // Open in same tab (redirect)
+        window.location.href = link;
+
+        // Safety: if redirect is blocked or slow, set a timeout to restore
+        // But since we navigate away, this is just a fallback.
+        setTimeout(function () {
+          // Only runs if navigation didn't happen
+          if (redirectLock) {
+            redirectLock = false;
+            // Re-enable if page still visible
+            if (!hasWon && timeLeft > 0) {
+              isActive = true;
+              clickButton.disabled = false;
+              startTimer();
+            }
+          }
+        }, 2000);
+      }
+
+      // ===== CLICK HANDLER =====
+      function handleClick() {
+        if (hasWon) return;
+        if (redirectLock) return;
+
+        // If not active yet, start the timer on first click
+        if (!isActive) {
+          if (timeLeft <= 0) {
+            messageArea.className = 'status-message error';
+            messageArea.textContent = 'Time is up. Press Restart to try again.';
+            return;
+          }
+          startTimer();
+        }
+
+        if (!isActive) return;
+
+        clicks += 1;
+        updateUI();
+        saveState();
+
+        // Check for redirect threshold
+        if (clicks >= nextRedirectAt && clicks < TARGET_CLICKS) {
+          handleRedirect();
+          return;
+        }
+
+        if (clicks >= TARGET_CLICKS) {
+          setWonState();
+        }
+      }
+
+      // ===== RESTART HANDLER =====
+      function handleRestart() {
+        clearState();
+        // Also reset contactUnlocked to false? The requirement says "so they won't lose their timer and clicks"
+        // But restart should reset everything including unlock, unless they already completed.
+        // We'll reset contactUnlocked to false on restart, because it's a fresh attempt.
+        contactUnlocked = false;
+        contactCta.disabled = true;
+        contactCta.setAttribute('aria-disabled', 'true');
+        resetGame();
+      }
+
+      // ===== LIVE USER SIMULATION =====
+      function updateLiveCounters() {
+        const online = Math.floor(Math.random() * 1700) + 800;
+        const trying = Math.floor(Math.random() * 450) + 150;
+        onlineUsersSpan.textContent = online.toLocaleString();
+        tryingUsersSpan.textContent = trying.toLocaleString();
+      }
+
+      // ===== CONTACT MODAL =====
+      function openModal() {
+        if (!contactUnlocked) return;
+        contactModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal() {
+        contactModal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      // ===== EVENT LISTENERS =====
+      clickButton.addEventListener('click', handleClick);
+      restartButton.addEventListener('click', handleRestart);
+      contactCta.addEventListener('click', openModal);
+      modalClose.addEventListener('click', closeModal);
+      modalConfirm.addEventListener('click', closeModal);
+      contactModal.addEventListener('click', function (e) {
+        if (e.target === contactModal) closeModal();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && contactModal.classList.contains('active')) closeModal();
+      });
+
+      // ===== INIT =====
+      const loaded = loadState();
+      if (loaded) {
+        // Restore UI based on saved state
+        if (hasWon) {
+          setWonState();
+        } else {
+          if (contactUnlocked) {
+            contactCta.disabled = false;
+            contactCta.setAttribute('aria-disabled', 'false');
+          }
+          updateUI();
+          // If timeLeft > 0 and clicks > 0, we can show a "resume" message
+          if (clicks > 0 || timeLeft < INITIAL_TIME) {
+            messageArea.textContent = 'Progress restored. Press CLICK TO ENTER to continue.';
+          }
+          // Ensure timer not auto-started; user must click to resume
+        }
+      } else {
+        resetGame();
+      }
+      updateUI();
+      updateLiveCounters();
+      setInterval(updateLiveCounters, 3500);
+
+      // Also save state before unload
+      window.addEventListener('beforeunload', saveState);
+    })();
+  </script>
+</body>
+</html>
