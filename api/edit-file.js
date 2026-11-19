@@ -179,7 +179,17 @@ export default async function handler(req, res) {
                         continue;
                     }
                     try {
-                        const blobRes = await fetch(`https://api.github.com/repos/${gbRepo}/git/blobs/${f.sha}`, { headers: ghHeaders });
+                        // Empty files need no GitHub round trip (and must never fail a zip).
+                        if (f.size === 0 || f.sha === 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391') {
+                            results[i] = { path: f.path, content: '', encoding: 'base64' };
+                            continue;
+                        }
+                        let blobRes;
+                        for (let a = 0; a < 3; a++) {
+                            blobRes = await fetch(`https://api.github.com/repos/${gbRepo}/git/blobs/${f.sha}`, { headers: ghHeaders });
+                            if (blobRes.ok || ![403, 429, 500, 502, 503, 504].includes(blobRes.status)) break;
+                            await new Promise(r => setTimeout(r, 400 * (a + 1)));
+                        }
                         if (!blobRes.ok) {
                             errors.push({ path: f.path, error: `Blob fetch failed (${blobRes.status})` });
                             continue;
@@ -353,78 +363,79 @@ export default async function handler(req, res) {
         return { status: 409, body: { error: lastRefError || "Branch kept changing while deleting; try again." } };
     }
 
-    // NEW: Bulk upload — push many files to a repo in ONE commit instead of
-    // one PUT (contents API) per file. This is the counterpart to
-    // deleteFolder below: it uses the Git Data API to create a blob per
-    // file (in parallel, capped concurrency), build a single tree on top
-    // of the current HEAD, make one commit, and fast-forward the branch —
-    // so uploading 1,000 files costs one commit, not 1,000.
+    // Bulk upload — many files in ONE commit per request. With `stream: true`
+    // the reply is NDJSON: a {type:'progress'} line as each blob lands, then a
+    // final {type:'result'} or {type:'error'} line (so the UI can show live
+    // progress and the connection never sits silent until a gateway timeout).
     if (req.method === 'POST' && req.body && req.body.bulkCommit) {
-        const { repo: bcRepo, files, message, branch: bcBranchOverride } = req.body;
+        const { repo: bcRepo, files, message, branch: bcBranchOverride, stream } = req.body;
+        let started = false;
+        const emit = (obj) => {
+            if (!stream) return;
+            if (!started) {
+                started = true;
+                res.statusCode = 200;
+                res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+                res.setHeader('Cache-Control', 'no-cache, no-transform');
+                res.setHeader('X-Accel-Buffering', 'no');
+            }
+            res.write(JSON.stringify(obj) + '\n');
+        };
+        const finish = (status, body) => {
+            if (stream) {
+                emit(status === 200 ? { type: 'result', ...body } : { type: 'error', status, ...body });
+                return res.end();
+            }
+            return res.status(status).json(body);
+        };
+        const ghFail = async (r, fallback, extra) => finish(r.status, { error: await ghError(r, fallback), ...(extra || {}) });
+
         if (!bcRepo || !Array.isArray(files) || files.length === 0) {
-            return res.status(400).json({ error: "Missing required parameters: repo or files." });
+            return finish(400, { error: "Missing required parameters: repo or files." });
         }
-        // Basic sanity cap — GitHub blobs max out at 100MB each and a single
-        // request body this large would be impractical anyway; chunk on the
-        // client if you have truly massive payloads.
         if (files.length > 5000) {
-            return res.status(413).json({ error: "Too many files in one bulk commit (max 5000)." });
+            return finish(413, { error: "Too many files in one bulk commit (max 5000)." });
         }
 
         try {
-            const ghHeaders = {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            };
+            const ghHeaders = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
 
-            // 1. Resolve the target branch (explicit override, or the repo's
-            //    default branch), current commit, and base tree sha.
             let branch = bcBranchOverride;
             if (!branch) {
                 const repoInfoRes = await fetch(`https://api.github.com/repos/${bcRepo}`, { headers: ghHeaders });
-                if (!repoInfoRes.ok) return res.status(repoInfoRes.status).json({ error: await ghError(repoInfoRes, "Could not read repository info.") });
-                const repoInfo = await repoInfoRes.json();
-                branch = repoInfo.default_branch;
+                if (!repoInfoRes.ok) return ghFail(repoInfoRes, "Could not read repository info.");
+                branch = (await repoInfoRes.json()).default_branch;
             }
 
-            const refRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/ref/heads/${branch}`, { headers: ghHeaders });
-            if (!refRes.ok) return res.status(refRes.status).json({ error: await ghError(refRes, "Could not resolve branch ref.") });
-            const refData = await refRes.json();
-            const baseCommitSha = refData.object.sha;
+            const refRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/ref/heads/${encodeRef(branch)}`, { headers: ghHeaders });
+            if (!refRes.ok) return ghFail(refRes, "Could not resolve branch ref.");
+            const baseCommitSha = (await refRes.json()).object.sha;
 
             const commitRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/commits/${baseCommitSha}`, { headers: ghHeaders });
-            if (!commitRes.ok) return res.status(commitRes.status).json({ error: await ghError(commitRes, "Could not read base commit.") });
-            const commitData = await commitRes.json();
-            const baseTreeSha = commitData.tree.sha;
+            if (!commitRes.ok) return ghFail(commitRes, "Could not read base commit.");
+            const baseTreeSha = (await commitRes.json()).tree.sha;
 
-            // 2. Create a blob for every file. Run with capped concurrency
-            //    (5 at a time, down from 10 — GitHub's secondary rate limit
-            //    triggers on bursts of rapid writes, and 10-wide concurrency
-            //    across many back-to-back chunks tripped it in practice) and
-            //    retry individual 403 "secondary rate limit" hits with
-            //    backoff instead of giving up on the whole chunk immediately.
+            // Blobs: capped concurrency (GitHub's secondary rate limit trips on
+            // wide bursts) with backoff on 403/429. Empty files are valid —
+            // they're sent as empty utf-8 content rather than empty base64.
             const CONCURRENCY = 5;
             const blobResults = new Array(files.length);
             const errors = [];
-            let nextIndex = 0;
+            let nextIndex = 0, doneCount = 0, bytesDone = 0;
+            const bytesTotal = files.reduce((s, f) => s + ((f && typeof f.content === 'string') ? f.content.length : 0), 0);
 
             function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
             async function createBlobWithRetry(f, attempt = 0) {
+                const payload = f.content === '' ? { content: '', encoding: 'utf-8' } : { content: f.content, encoding: 'base64' };
                 const blobRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/blobs`, {
-                    method: 'POST',
-                    headers: ghHeaders,
-                    body: JSON.stringify({ content: f.content, encoding: 'base64' })
+                    method: 'POST', headers: ghHeaders, body: JSON.stringify(payload)
                 });
                 if (blobRes.ok) return { ok: true, data: await blobRes.json() };
-
-                const isRateLimit = blobRes.status === 403 || blobRes.status === 429;
-                if (isRateLimit && attempt < 3) {
-                    // Respect Retry-After if GitHub sent one, else back off
-                    // 2s / 5s / 12s.
+                const retryable = blobRes.status === 403 || blobRes.status === 429 || blobRes.status >= 500;
+                if (retryable && attempt < 3) {
                     const retryAfter = Number(blobRes.headers.get('retry-after'));
-                    const waitMs = retryAfter > 0 ? retryAfter * 1000 : [2000, 5000, 12000][attempt];
-                    await sleep(waitMs);
+                    await sleep(retryAfter > 0 ? retryAfter * 1000 : [1000, 3000, 8000][attempt]);
                     return createBlobWithRetry(f, attempt + 1);
                 }
                 return { ok: false, error: await ghError(blobRes, "Blob creation failed") };
@@ -436,60 +447,55 @@ export default async function handler(req, res) {
                     const f = files[i];
                     if (!f || !f.path || typeof f.content !== 'string') {
                         errors.push({ path: f && f.path, error: 'Missing path or content' });
-                        continue;
-                    }
-                    try {
-                        const result = await createBlobWithRetry(f);
-                        if (!result.ok) {
-                            errors.push({ path: f.path, error: result.error });
-                            continue;
+                    } else {
+                        try {
+                            const result = await createBlobWithRetry(f);
+                            if (result.ok) blobResults[i] = { path: f.path, mode: '100644', type: 'blob', sha: result.data.sha };
+                            else errors.push({ path: f.path, error: result.error });
+                        } catch (err) {
+                            errors.push({ path: f.path, error: err.message });
                         }
-                        blobResults[i] = { path: f.path, mode: '100644', type: 'blob', sha: result.data.sha };
-                    } catch (err) {
-                        errors.push({ path: f.path, error: err.message });
+                        bytesDone += f.content.length;
                     }
+                    doneCount++;
+                    emit({ type: 'progress', stage: 'blobs', done: doneCount, total: files.length, bytesDone, bytesTotal });
                 }
             }
             await Promise.all(Array.from({ length: Math.min(CONCURRENCY, files.length) }, worker));
 
             const treeEntries = blobResults.filter(Boolean);
             if (treeEntries.length === 0) {
-                return res.status(422).json({ error: "No blobs could be created.", details: errors });
+                return finish(422, { error: "No blobs could be created.", details: errors });
             }
 
-            // 3. Create one new tree on top of the current tree (base_tree
-            //    merges these paths in / overwrites existing ones; anything
-            //    not mentioned stays untouched).
+            emit({ type: 'progress', stage: 'tree' });
             const newTreeRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/trees`, {
-                method: 'POST',
-                headers: ghHeaders,
+                method: 'POST', headers: ghHeaders,
                 body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries })
             });
-            if (!newTreeRes.ok) return res.status(newTreeRes.status).json({ error: await ghError(newTreeRes, "Could not create new tree."), details: errors });
+            if (!newTreeRes.ok) return ghFail(newTreeRes, "Could not create new tree.", { details: errors });
             const newTree = await newTreeRes.json();
 
-            // 4. One commit for the whole batch.
+            emit({ type: 'progress', stage: 'commit' });
             const newCommitRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/commits`, {
-                method: 'POST',
-                headers: ghHeaders,
+                method: 'POST', headers: ghHeaders,
                 body: JSON.stringify({
                     message: message || `Add ${treeEntries.length} file${treeEntries.length === 1 ? '' : 's'}`,
                     tree: newTree.sha,
                     parents: [baseCommitSha]
                 })
             });
-            if (!newCommitRes.ok) return res.status(newCommitRes.status).json({ error: await ghError(newCommitRes, "Could not create new commit."), details: errors });
+            if (!newCommitRes.ok) return ghFail(newCommitRes, "Could not create new commit.", { details: errors });
             const newCommit = await newCommitRes.json();
 
-            // 5. Fast-forward the branch ref.
-            const updateRefRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/refs/heads/${branch}`, {
-                method: 'PATCH',
-                headers: ghHeaders,
+            emit({ type: 'progress', stage: 'ref' });
+            const updateRefRes = await fetch(`https://api.github.com/repos/${bcRepo}/git/refs/heads/${encodeRef(branch)}`, {
+                method: 'PATCH', headers: ghHeaders,
                 body: JSON.stringify({ sha: newCommit.sha })
             });
-            if (!updateRefRes.ok) return res.status(updateRefRes.status).json({ error: await ghError(updateRefRes, "Could not update branch ref."), details: errors });
+            if (!updateRefRes.ok) return ghFail(updateRefRes, "Could not update branch ref.", { details: errors });
 
-            return res.status(200).json({
+            return finish(200, {
                 success: true,
                 committedCount: treeEntries.length,
                 failedCount: errors.length,
@@ -497,7 +503,7 @@ export default async function handler(req, res) {
                 commitSha: newCommit.sha
             });
         } catch (err) {
-            return res.status(500).json({ error: err.message });
+            return finish(500, { error: err.message });
         }
     }
 

@@ -494,6 +494,26 @@
          .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
          .btn-primary:active:not(:disabled) { transform: scale(0.98); }
          .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+         /* ── Live push card ───────────────────────────────────── */
+         .push-card { display:none; width:100%; background:var(--surface, rgba(255,255,255,.05)); border:1px solid var(--border, rgba(255,255,255,.14)); border-top:3px solid var(--accent); border-radius:16px; padding:14px; box-shadow:0 10px 26px -12px rgba(74,222,128,.35); }
+         .pc-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px; }
+         .pc-title { font-weight:700; font-size:15px; }
+         .pc-sub { font-size:12px; opacity:.7; margin-top:3px; font-family:var(--mono, ui-monospace, monospace); }
+         .pc-pct { font-weight:800; font-size:22px; color:var(--accent); font-variant-numeric:tabular-nums; }
+         .pc-bar { height:8px; border-radius:99px; background:rgba(128,128,128,.25); overflow:hidden; }
+         .pc-bar-main { height:12px; margin-bottom:12px; }
+         .pc-fill { height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .25s ease; }
+         .pc-list { display:flex; flex-direction:column; gap:8px; max-height:38vh; overflow-y:auto; }
+         .pc-batch { padding:9px 10px; border-radius:11px; background:rgba(128,128,128,.1); border:1px solid transparent; }
+         .pc-batch.active { border-color:var(--accent); }
+         .pc-batch.error { border-color:var(--bad); }
+         .pc-batch.error .pc-fill { background:var(--bad); }
+         .pc-batch.wait { opacity:.55; }
+         .pc-brow { display:flex; align-items:baseline; gap:8px; margin-bottom:7px; flex-wrap:wrap; }
+         .pc-bname { font-weight:700; font-size:13px; }
+         .pc-bmeta { font-size:12px; opacity:.8; font-family:var(--mono, ui-monospace, monospace); }
+         .pc-bstate { margin-left:auto; font-size:12px; font-weight:600; }
          .hint {
          font-size: 11px;
          color: var(--text-faint);
@@ -1002,6 +1022,7 @@
 
       <div class="push-bar" id="pushBar">
          <div class="push-bar-inner">
+            <div class="push-card" id="pushCard"></div>
             <button class="btn-primary" id="pushBtn" disabled>
                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -1365,7 +1386,7 @@
          function toBase64(file) {
            return new Promise((resolve, reject) => {
              const reader = new FileReader();
-             reader.onload = () => resolve(reader.result.split(',')[1]);
+             reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
              reader.onerror = reject;
              reader.readAsDataURL(file);
            });
@@ -1543,26 +1564,21 @@
            }
          }
 
-         // Serverless platforms (Vercel etc.) cap the raw request body size
-         // (commonly ~4.5MB) regardless of how few files that is — base64
-         // content inflates size ~33% over the original bytes, so a few
-         // hundred real-world files can blow past that limit even though
-         // they're nowhere near the 5000-file count cap, and show up as an
-         // opaque HTTP 413 from the platform itself (before our code even
-         // runs). So we chunk by estimated payload size, not just count,
-         // and push each chunk as its own sequential commit.
-         const MAX_CHUNK_BYTES = 3 * 1024 * 1024; // stay safely under ~4.5MB raw body limits
-         const MAX_CHUNK_FILES = 100; // hard ceiling regardless of size, so a chunk of many tiny files still stays a reasonably-sized commit
+         // Chunking: the first commit takes up to 100 files, every later one
+         // up to 50 (smaller = finishes inside the server time limit). A byte
+         // cap still applies so a chunk never goes over the ~4.5MB body limit.
+         const FIRST_CHUNK_FILES = 100;
+         const NEXT_CHUNK_FILES = 50;
+         const MAX_CHUNK_BYTES = 3 * 1024 * 1024;
 
          function chunkFilesBySize(files) {
            const chunks = [];
            let current = [];
            let currentBytes = 0;
            for (const f of files) {
-             // base64 string length ≈ actual byte size already (4/3 inflation
-             // is baked into f.content.length), plus a little JSON overhead.
              const approxBytes = f.content.length + f.path.length + 64;
-             if (current.length > 0 && (currentBytes + approxBytes > MAX_CHUNK_BYTES || current.length >= MAX_CHUNK_FILES)) {
+             const limit = chunks.length === 0 ? FIRST_CHUNK_FILES : NEXT_CHUNK_FILES;
+             if (current.length > 0 && (currentBytes + approxBytes > MAX_CHUNK_BYTES || current.length >= limit)) {
                chunks.push(current);
                current = [];
                currentBytes = 0;
@@ -1574,67 +1590,171 @@
            return chunks;
          }
 
+         // ── Live push card ──
+         const pushCardEl = document.getElementById('pushCard');
+         let pcState = null, pcRaf = 0;
+
+         function pcBuild(batches, totalFiles, totalBytes) {
+           pcState = { batches, totalFiles, totalBytes };
+           pushCardEl.innerHTML = `
+             <div class="pc-head">
+               <div><div class="pc-title">Pushing to GitHub</div><div class="pc-sub" id="pcSub"></div></div>
+               <div class="pc-pct" id="pcPct">0%</div>
+             </div>
+             <div class="pc-bar pc-bar-main"><div class="pc-fill" id="pcFill"></div></div>
+             <div class="pc-list">${batches.map((b, i) => `
+               <div class="pc-batch wait" id="pcB${i}">
+                 <div class="pc-brow">
+                   <span class="pc-bname">Batch ${i + 1}/${batches.length}</span>
+                   <span class="pc-bmeta">${b.files} files · ${formatSize(b.bytes)}</span>
+                   <span class="pc-bstate" id="pcS${i}">Waiting</span>
+                 </div>
+                 <div class="pc-bar"><div class="pc-fill" id="pcF${i}"></div></div>
+               </div>`).join('')}</div>`;
+           pushCardEl.style.display = 'block';
+           document.getElementById('pushBtn').style.display = 'none';
+           pcPaint();
+         }
+
+         function pcHide() {
+           pcState = null;
+           pushCardEl.style.display = 'none';
+           document.getElementById('pushBtn').style.display = '';
+         }
+
+         function pcUpdate() {
+           if (pcRaf) return;
+           pcRaf = requestAnimationFrame(() => { pcRaf = 0; pcPaint(); });
+         }
+
+         function pcPaint() {
+           const s = pcState;
+           if (!s) return;
+           let weighted = 0, totalW = 0, filesDone = 0, active = -1;
+           s.batches.forEach((b, i) => {
+             const w = Math.max(b.bytes, 1);
+             weighted += b.pct * w; totalW += w;
+             if (b.state === 'done') filesDone += b.files;
+             if (b.state === 'active') active = i;
+             const fill = document.getElementById('pcF' + i);
+             if (!fill) return;
+             fill.style.width = b.pct.toFixed(1) + '%';
+             document.getElementById('pcS' + i).textContent =
+               b.state === 'done' ? 'Done ✓' :
+               b.state === 'error' ? 'Failed ✕' :
+               b.state === 'active' ? `${Math.round(b.pct)}% · ${b.phase}` : 'Waiting';
+             document.getElementById('pcB' + i).className = 'pc-batch ' + b.state;
+           });
+           const pct = totalW ? weighted / totalW : 0;
+           document.getElementById('pcFill').style.width = pct.toFixed(1) + '%';
+           document.getElementById('pcPct').textContent = Math.round(pct) + '%';
+           const shown = active >= 0 ? active + 1 : s.batches.filter(b => b.state !== 'wait').length;
+           document.getElementById('pcSub').textContent =
+             `Batch ${Math.max(shown, 1)}/${s.batches.length} · ${filesDone}/${s.totalFiles} files · ${formatSize(s.totalBytes)} total`;
+         }
+
+         // XHR (not fetch) so we get real upload progress, and so we can read
+         // the server's streamed progress lines while it is still working.
+         function sendChunk(body, onUpload, onServer) {
+           return new Promise((resolve) => {
+             const xhr = new XMLHttpRequest();
+             xhr.open('POST', API_URL);
+             xhr.setRequestHeader('Content-Type', 'application/json');
+             let seen = 0, final = null;
+             const isStream = () => (xhr.getResponseHeader('content-type') || '').includes('ndjson');
+             const readLines = () => {
+               const text = xhr.responseText;
+               let nl;
+               while ((nl = text.indexOf('\n', seen)) !== -1) {
+                 const line = text.slice(seen, nl).trim();
+                 seen = nl + 1;
+                 if (!line) continue;
+                 try {
+                   const m = JSON.parse(line);
+                   if (m.type === 'progress') onServer(m); else final = m;
+                 } catch (_) {}
+               }
+             };
+             xhr.upload.onprogress = (e) => { if (e.lengthComputable) onUpload(e.loaded / e.total); };
+             xhr.upload.onload = () => onUpload(1);
+             xhr.onprogress = () => { if (isStream()) readLines(); };
+             xhr.onerror = () => resolve({ status: 0, body: { error: 'Network error while sending this batch' } });
+             xhr.onload = () => {
+               if (isStream()) {
+                 readLines();
+                 if (!final) return resolve({ status: 504, body: { error: 'Connection closed before GitHub confirmed the commit' } });
+                 return resolve(final.type === 'result' ? { status: 200, body: final } : { status: final.status || 500, body: final });
+               }
+               let b = {};
+               try { b = JSON.parse(xhr.responseText); } catch (_) {}
+               resolve({ status: xhr.status, body: b });
+             };
+             xhr.send(body);
+           });
+         }
+
          async function pushBulk(repo, label, originalLabel, filesToPush) {
-           filesToPush = (filesToPush || fileState).slice(0, MAX_CHUNK_FILES);
-           // A click sends only one batch. Anything beyond the first batch
-           // stays pending until the user manually clicks Push again.
-           filesToPush.forEach(f => f.status = 'pending');
+           filesToPush = filesToPush || fileState;
+           filesToPush.forEach(f => f.status = 'pushing');
            renderQueue();
 
            const allFiles = filesToPush.map(f => ({ path: f.path, content: f.content, _ref: f }));
-           const chunks = chunkFilesBySize(allFiles).slice(0, 1);
-           chunks[0].forEach(f => f._ref.status = 'pushing');
-           renderQueue();
+           const chunks = chunkFilesBySize(allFiles);
            const baseMessage = currentCommitMessage(`Add ${filesToPush.length} files`);
            const branch = currentBranch();
+           const batches = chunks.map(c => ({ files: c.length, bytes: c.reduce((s, f) => s + (f._ref.size || 0), 0), pct: 0, state: 'wait', phase: '' }));
+           pcBuild(batches, filesToPush.length, batches.reduce((s, b) => s + b.bytes, 0));
 
            let totalCommitted = 0;
            const allErrors = [];
 
            try {
              for (let i = 0; i < chunks.length; i++) {
-               // Small cooldown between chunks (not before the first) so
-               // back-to-back commits don't burst into GitHub's secondary
-               // rate limit the way 139 files in ~2 chunks did previously.
-               if (i > 0) {
-                 label.textContent = 'Pausing briefly to avoid GitHub rate limits...';
-                 await new Promise(r => setTimeout(r, 1500));
-               }
                const chunk = chunks[i];
-               const chunkLabel = chunks.length > 1
-                 ? `Pushing chunk ${i + 1}/${chunks.length} (${chunk.length} files)...`
-                 : `Pushing ${chunk.length} files in 1 commit...`;
-               label.textContent = chunkLabel;
+               const bt = batches[i];
+               bt.state = 'active'; bt.phase = 'Uploading'; bt.pct = 0;
+               pcUpdate();
+               const rowEl = document.getElementById('pcB' + i);
+               if (rowEl) rowEl.scrollIntoView({ block: 'nearest' });
 
-               const res = await fetch(API_URL, {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({
-                   bulkCommit: true,
-                   repo,
-                   branch,
-                   files: chunk.map(f => ({ path: f.path, content: f.content })),
-                   message: chunks.length > 1 ? `${baseMessage} (part ${i + 1}/${chunks.length})` : baseMessage
-                 })
+               const body = JSON.stringify({
+                 bulkCommit: true,
+                 stream: true,
+                 repo,
+                 branch,
+                 files: chunk.map(f => ({ path: f.path, content: f.content })),
+                 message: chunks.length > 1 ? `${baseMessage} (part ${i + 1}/${chunks.length})` : baseMessage
                });
 
-               if (!res.ok) {
-                 const err = await res.json().catch(() => ({}));
+               const onUpload = (u) => { bt.pct = u * 30; bt.phase = u >= 1 ? 'Processing' : 'Uploading'; pcUpdate(); };
+               const onServer = (m) => {
+                 if (m.stage === 'blobs') {
+                   bt.pct = 30 + 60 * (m.bytesTotal ? m.bytesDone / m.bytesTotal : m.done / m.total);
+                   bt.phase = `Files ${m.done}/${m.total}`;
+                 } else if (m.stage === 'tree') { bt.pct = 92; bt.phase = 'Building tree'; }
+                 else if (m.stage === 'commit') { bt.pct = 96; bt.phase = 'Committing'; }
+                 else if (m.stage === 'ref') { bt.pct = 98; bt.phase = 'Updating branch'; }
+                 pcUpdate();
+               };
+
+               // Gateway timeouts (502/503/504) and dropped connections get one
+               // immediate retry of the same batch.
+               let r;
+               for (let attempt = 0; attempt < 2; attempt++) {
+                 if (attempt > 0) { bt.pct = 0; bt.phase = 'Retrying'; pcUpdate(); }
+                 r = await sendChunk(body, onUpload, onServer);
+                 if (![0, 502, 503, 504].includes(r.status)) break;
+               }
+
+               if (r.status !== 200) {
+                 const err = r.body || {};
                  console.error(`Bulk commit chunk ${i + 1}/${chunks.length} failed:`, err);
-                 // The backend includes a per-file `details` array (from the
-                 // blob-creation step) even on a whole-chunk failure like
-                 // "No blobs could be created" — surface the first couple of
-                 // actual reasons instead of just the flat summary message,
-                 // since a whole chunk failing almost always has one root
-                 // cause (bad token, rate limit, bad content) repeated per file.
-                 let detailMsg = err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${res.status})`;
+                 let detailMsg = err.error || `Chunk ${i + 1}/${chunks.length} failed (HTTP ${r.status})`;
                  if (Array.isArray(err.details) && err.details.length > 0) {
                    const sample = err.details.slice(0, 3).map(d => `${d.path || '?'}: ${d.error}`).join(' | ');
                    detailMsg += ` — ${sample}${err.details.length > 3 ? ` (+${err.details.length - 3} more)` : ''}`;
                  }
-                 // Mark this chunk's files as errored, but leave files in
-                 // chunks we never reached as 'pending' rather than 'error',
-                 // since they were never attempted.
+                 bt.state = 'error'; pcUpdate();
                  chunk.forEach(f => f._ref.status = 'error');
                  for (let j = i + 1; j < chunks.length; j++) {
                    chunks[j].forEach(f => f._ref.status = 'pending');
@@ -1643,7 +1763,8 @@
                  throw new Error(detailMsg);
                }
 
-               const data = await res.json();
+               const data = r.body;
+               bt.pct = 100; bt.state = 'done'; bt.phase = 'Done'; pcUpdate();
                const failedPaths = new Set((data.errors || []).map(e => e.path));
                chunk.forEach(f => { f._ref.status = failedPaths.has(f.path) ? 'error' : 'done'; });
                renderQueue();
@@ -1656,9 +1777,6 @@
 
              if (allErrors.length === 0) {
                showToast(`Pushed ${totalCommitted} file${totalCommitted === 1 ? '' : 's'} to GitHub in ${chunks.length} commit${chunks.length === 1 ? '' : 's'}`, 'good');
-               // Only drop files that actually landed — anything still
-               // marked 'error' (shouldn't happen when allErrors is empty,
-               // but kept for safety) stays in the queue for a retry.
                fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              } else {
@@ -1672,8 +1790,6 @@
                  perFileErrors: allErrors,
                  doneFiles, failedFiles, pendingFiles
                });
-               // Drop the ones confirmed done; keep failed/pending ones in
-               // the queue so the next click only retries what's left.
                fileState = fileState.filter(f => f.status !== 'done');
                renderQueue();
              }
@@ -1691,10 +1807,10 @@
                perFileErrors: [],
                doneFiles, failedFiles, pendingFiles
              });
-             // Drop committed files from the queue; keep error/pending ones
-             // so clicking push again only retries what didn't make it.
              fileState = fileState.filter(f => f.status !== 'done');
              renderQueue();
+           } finally {
+             pcHide();
            }
          }
 
@@ -1797,8 +1913,7 @@
          }
 
          async function pushOneByOne(repo, label, originalLabel, filesToPush) {
-           // Keep per-file mode bounded too: at most 100 files per manual click.
-           filesToPush = (filesToPush || fileState).slice(0, MAX_CHUNK_FILES);
+           filesToPush = filesToPush || fileState;
            let successCount = 0;
            let failCount = 0;
            const branch = currentBranch();
@@ -2466,7 +2581,7 @@
                    body: JSON.stringify({
                      repo: repoFull,
                      getBlobs: true,
-                     files: chunk.map(f => ({ path: f.path, sha: f.sha }))
+                     files: chunk.map(f => ({ path: f.path, sha: f.sha, size: f.size }))
                    })
                  });
                  if (!res.ok) {
@@ -2480,9 +2595,11 @@
                  const got = new Set();
                  for (const b of (data.blobs || [])) {
                    got.add(b.path);
-                   if (typeof b.content === 'string') {
-                     zip.file(b.path, b.content.replace(/\n/g, ''), { base64: true });
-                   }
+                   try {
+                     const raw = typeof b.content === 'string' ? b.content : '';
+                     if (b.encoding === 'utf-8') zip.file(b.path, raw);
+                     else zip.file(b.path, raw.replace(/\s/g, ''), { base64: true });
+                   } catch (_) { failedPaths.push(b.path); }
                  }
                  for (const f of chunk) {
                    if (!got.has(f.path)) failedPaths.push(f.path);
@@ -2499,7 +2616,9 @@
              }
 
              downloadZipBtnLabel.textContent = 'Building zip...';
-             const blob = await zip.generateAsync({ type: 'blob' });
+             let blob;
+             try { blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }); }
+             catch (_) { blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' }); }
              const repoName = repoFull.split('/')[1] || repoFull;
              const url = URL.createObjectURL(blob);
              const a = document.createElement('a');
