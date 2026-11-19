@@ -1575,12 +1575,16 @@
          }
 
          async function pushBulk(repo, label, originalLabel, filesToPush) {
-           filesToPush = filesToPush || fileState;
-           filesToPush.forEach(f => f.status = 'pushing');
+           filesToPush = (filesToPush || fileState).slice(0, MAX_CHUNK_FILES);
+           // A click sends only one batch. Anything beyond the first batch
+           // stays pending until the user manually clicks Push again.
+           filesToPush.forEach(f => f.status = 'pending');
            renderQueue();
 
            const allFiles = filesToPush.map(f => ({ path: f.path, content: f.content, _ref: f }));
-           const chunks = chunkFilesBySize(allFiles);
+           const chunks = chunkFilesBySize(allFiles).slice(0, 1);
+           chunks[0].forEach(f => f._ref.status = 'pushing');
+           renderQueue();
            const baseMessage = currentCommitMessage(`Add ${filesToPush.length} files`);
            const branch = currentBranch();
 
@@ -1793,7 +1797,8 @@
          }
 
          async function pushOneByOne(repo, label, originalLabel, filesToPush) {
-           filesToPush = filesToPush || fileState;
+           // Keep per-file mode bounded too: at most 100 files per manual click.
+           filesToPush = (filesToPush || fileState).slice(0, MAX_CHUNK_FILES);
            let successCount = 0;
            let failCount = 0;
            const branch = currentBranch();
