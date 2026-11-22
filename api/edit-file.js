@@ -18,8 +18,8 @@ export default async function handler(req, res) {
     if (!secret) {
         return res.status(500).json({ error: "Nothing to protect with: set GITHUB_TOKEN (or APP_PASSWORD) in Vercel." });
     }
-    const sha = v => createHash('sha256').update(String(v)).digest();
-    const same = (x, y) => timingSafeEqual(sha(x), sha(y));
+    const hashValue = v => createHash('sha256').update(String(v)).digest();
+const same = (x, y) => timingSafeEqual(hashValue(x), hashValue(y));
     const cookieValue = createHmac('sha256', secret).update('push-tool-auth').digest('hex');
     const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
         const i = c.indexOf('=');
