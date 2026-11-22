@@ -807,10 +807,52 @@
          border-radius: var(--radius-sm);
          padding: 12px;
          }
+
+         /* ── Multi-select repo delete ── */
+         .del-repos-toggle { display:flex; align-items:center; gap:6px; background:none; border:none; color:var(--bad); font-size:12px; font-weight:600; cursor:pointer; padding:8px 2px 0; }
+         .dr-overlay { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,.6); display:none; align-items:flex-end; justify-content:center; }
+         .dr-overlay.open { display:flex; }
+         .dr-modal { background:var(--bg); color:var(--text); width:100%; max-width:560px; max-height:88vh; border-radius:14px 14px 0 0; border:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+         @media (min-width:640px) { .dr-overlay { align-items:center; } .dr-modal { border-radius:14px; } }
+         .dr-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); font-weight:700; font-size:15px; }
+         .dr-head button { background:none; border:none; color:var(--text); font-size:22px; line-height:1; cursor:pointer; }
+         .dr-tools { display:flex; gap:8px; padding:10px 16px; align-items:center; flex-wrap:wrap; }
+         .dr-tools input[type=text] { flex:1; min-width:140px; }
+         .dr-chip { background:none; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+         .dr-list { overflow-y:auto; flex:1; padding:0 8px; min-height:120px; }
+         .dr-row { display:flex; align-items:center; gap:12px; padding:12px 8px; border-bottom:1px solid var(--border); cursor:pointer; }
+         .dr-row input { width:20px; height:20px; accent-color:var(--bad); flex-shrink:0; }
+         .dr-row.disabled { opacity:.45; cursor:not-allowed; }
+         .dr-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+         .dr-tag { font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; border:1px solid var(--border); color:var(--text-faint, #888); }
+         .dr-status { font-size:11px; font-weight:700; }
+         .dr-status.ok { color:var(--accent); } .dr-status.err { color:var(--bad); }
+         .dr-foot { padding:12px 16px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
+         .dr-warn { font-size:12px; color:var(--bad); }
+         .dr-go { background:var(--bad); color:#fff; border:none; border-radius:10px; padding:13px; font-size:14px; font-weight:700; cursor:pointer; }
+         .dr-go:disabled { opacity:.4; cursor:not-allowed; }
       </style>
    </head>
    <body>
       <div class="toast-stack" id="toastStack"></div>
+
+      <div class="dr-overlay" id="drOverlay">
+         <div class="dr-modal">
+            <div class="dr-head"><span>Delete repositories</span><button type="button" id="drClose">&times;</button></div>
+            <div class="dr-tools">
+               <input type="text" class="text-input" id="drSearch" placeholder="Search repos...">
+               <button type="button" class="dr-chip" id="drAll">Select all</button>
+               <button type="button" class="dr-chip" id="drNone">Clear</button>
+            </div>
+            <div class="dr-list" id="drList"></div>
+            <div class="dr-foot">
+               <div class="dr-warn">This permanently deletes the repos from GitHub. It cannot be undone.</div>
+               <input type="text" class="text-input mono" id="drConfirm" placeholder="Type DELETE to confirm" autocomplete="off" autocapitalize="characters">
+               <button type="button" class="dr-go" id="drGo" disabled>Delete selected</button>
+            </div>
+         </div>
+      </div>
+
       <div class="wrap">
          <div class="header">
             <div class="brand">
@@ -962,6 +1004,10 @@
                   </div>
                </div>
             </div>
+            <button type="button" class="del-repos-toggle" id="delReposBtn">
+               <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+               Delete repositories (multi-select)
+            </button>
             <div class="commit-msg-wrap">
                <label class="label">Commit message</label>
                <input type="text" class="text-input mono" id="commitMsgInput" placeholder="Add 3 files">
@@ -1036,6 +1082,32 @@
       <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
       <script>
          const API_URL = '/api/edit-file';
+
+         // Password gate: attach the saved password to every API call,
+         // and ask for it (once) whenever the server answers 401.
+         (function () {
+           const origFetch = window.fetch.bind(window);
+           let pending = null;
+           const getPw = () => { try { return localStorage.getItem('push_pw') || ''; } catch (e) { return ''; } };
+           const setPw = v => { try { v ? localStorage.setItem('push_pw', v) : localStorage.removeItem('push_pw'); } catch (e) {} };
+           window.fetch = async function (input, init = {}) {
+             const url = typeof input === 'string' ? input : input.url;
+             if (!url.startsWith(API_URL)) return origFetch(input, init);
+             const send = () => {
+               const headers = new Headers(init.headers || {});
+               headers.set('x-app-password', getPw());
+               return origFetch(input, { ...init, headers });
+             };
+             let res = await send();
+             if (res.status === 401) {
+               if (!pending) pending = Promise.resolve().then(() => prompt('Password (your GitHub token, unless you set APP_PASSWORD)'));
+               const pw = await pending; pending = null;
+               if (pw) { setPw(pw); res = await send(); }
+               if (res.status === 401) setPw('');
+             }
+             return res;
+           };
+         })();
          let fileState = [];
          let idCounter = 0;
 
@@ -1186,6 +1258,7 @@
          const repoSelect = document.getElementById('repoSelect');
          const branchSelect = document.getElementById('branchSelect');
 
+         let repoCache = [];
          async function loadRepos() {
            const previouslySelected = repoSelect.value;
            repoSelect.innerHTML = '<option>Loading...</option>';
@@ -1197,6 +1270,7 @@
                return;
              }
              const repos = await res.json();
+             repoCache = repos || [];
              repoSelect.innerHTML = (repos && repos.length)
                ? repos.map(r => `<option value="${r.full_name}">${r.name}</option>`).join('')
                : '<option>No repos found</option>';
@@ -1506,6 +1580,96 @@
            }, 3400);
          }
 
+
+         // ══════════════════════════════════════════════════════════
+         // MULTI-SELECT REPO DELETE
+         // ══════════════════════════════════════════════════════════
+         (function () {
+           const overlay = document.getElementById('drOverlay');
+           const list = document.getElementById('drList');
+           const search = document.getElementById('drSearch');
+           const confirmInput = document.getElementById('drConfirm');
+           const goBtn = document.getElementById('drGo');
+           const picked = new Set();
+           let busy = false;
+
+           function visibleRepos() {
+             const q = search.value.trim().toLowerCase();
+             return repoCache.filter(r => !q || r.full_name.toLowerCase().includes(q));
+           }
+           function render() {
+             list.innerHTML = visibleRepos().map(r => `
+               <label class="dr-row ${r.can_delete ? '' : 'disabled'}" data-repo="${escapeHtml(r.full_name)}">
+                 <input type="checkbox" ${picked.has(r.full_name) ? 'checked' : ''} ${r.can_delete ? '' : 'disabled'}>
+                 <span class="dr-name">${escapeHtml(r.full_name)}</span>
+                 ${r.private ? '<span class="dr-tag">PRIVATE</span>' : ''}
+                 ${r.can_delete ? '' : '<span class="dr-tag">NO ADMIN</span>'}
+                 <span class="dr-status"></span>
+               </label>`).join('') || '<div style="padding:20px;text-align:center;opacity:.6">No repos</div>';
+             updateGo();
+           }
+           function updateGo() {
+             const n = picked.size;
+             goBtn.textContent = n ? `Delete ${n} repo${n === 1 ? '' : 's'}` : 'Delete selected';
+             goBtn.disabled = busy || n === 0 || confirmInput.value.trim() !== 'DELETE';
+           }
+           function open() {
+             picked.clear(); search.value = ''; confirmInput.value = '';
+             overlay.classList.add('open');
+             render();
+           }
+           function close() { if (!busy) overlay.classList.remove('open'); }
+
+           document.getElementById('delReposBtn').addEventListener('click', async () => {
+             if (!repoCache.length) await loadRepos();
+             open();
+           });
+           document.getElementById('drClose').addEventListener('click', close);
+           overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+           search.addEventListener('input', render);
+           confirmInput.addEventListener('input', updateGo);
+           document.getElementById('drAll').addEventListener('click', () => {
+             visibleRepos().filter(r => r.can_delete).forEach(r => picked.add(r.full_name));
+             render();
+           });
+           document.getElementById('drNone').addEventListener('click', () => { picked.clear(); render(); });
+           list.addEventListener('change', e => {
+             const row = e.target.closest('.dr-row'); if (!row) return;
+             const name = row.dataset.repo;
+             e.target.checked ? picked.add(name) : picked.delete(name);
+             updateGo();
+           });
+
+           goBtn.addEventListener('click', async () => {
+             if (busy || !picked.size) return;
+             busy = true; updateGo();
+             const targets = [...picked];
+             let ok = 0, failed = 0;
+             for (const full of targets) {
+               const row = [...list.querySelectorAll('.dr-row')].find(r => r.dataset.repo === full);
+               const status = row && row.querySelector('.dr-status');
+               if (status) { status.className = 'dr-status'; status.textContent = 'deleting...'; }
+               try {
+                 const res = await fetch(`${API_URL}?deleteRepo=${encodeURIComponent(full)}`, { method: 'DELETE' });
+                 const data = await res.json().catch(() => ({}));
+                 if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                 ok++; picked.delete(full);
+                 repoCache = repoCache.filter(r => r.full_name !== full);
+                 if (status) { status.className = 'dr-status ok'; status.textContent = 'deleted'; }
+               } catch (err) {
+                 failed++;
+                 if (status) { status.className = 'dr-status err'; status.textContent = 'failed'; row.title = err.message; }
+                 if (failed === 1) showToast(err.message, 'bad');
+               }
+             }
+             busy = false;
+             confirmInput.value = '';
+             showToast(`Deleted ${ok} repo${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}`, failed ? 'bad' : 'good');
+             await loadRepos();
+             setTimeout(render, 900);
+           });
+         })();
+
          // ══════════════════════════════════════════════════════════
          // PUSH
          // ══════════════════════════════════════════════════════════
@@ -1660,6 +1824,7 @@
              const xhr = new XMLHttpRequest();
              xhr.open('POST', API_URL);
              xhr.setRequestHeader('Content-Type', 'application/json');
+             try { xhr.setRequestHeader('x-app-password', localStorage.getItem('push_pw') || ''); } catch (_) {}
              let seen = 0, final = null;
              const isStream = () => (xhr.getResponseHeader('content-type') || '').includes('ndjson');
              const readLines = () => {

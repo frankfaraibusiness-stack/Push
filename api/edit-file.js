@@ -2,30 +2,64 @@
 // git's well-known empty tree; GitHub's API returns 404 when asked to read it.
 const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
+
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-app-password');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
+
+    // Password gate. The password is APP_PASSWORD if you set it in Vercel,
+    // otherwise your GITHUB_TOKEN itself (nothing is stored in the code).
+    // After one correct entry the server sets a long-lived HttpOnly cookie,
+    // so that device is not asked again.
+    const secret = process.env.APP_PASSWORD || process.env.GITHUB_TOKEN;
+    if (!secret) {
+        return res.status(500).json({ error: "Nothing to protect with: set GITHUB_TOKEN (or APP_PASSWORD) in Vercel." });
+    }
+    const sha = v => createHash('sha256').update(String(v)).digest();
+    const same = (x, y) => timingSafeEqual(sha(x), sha(y));
+    const cookieValue = createHmac('sha256', secret).update('push-tool-auth').digest('hex');
+    const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(c => {
+        const i = c.indexOf('=');
+        return i < 0 ? ['', ''] : [c.slice(0, i).trim(), c.slice(i + 1).trim()];
+    }));
+    const headerOk = same(req.headers['x-app-password'] || '', secret);
+    const cookieOk = same(cookies.push_auth || '', cookieValue);
+    if (!headerOk && !cookieOk) {
+        return res.status(401).json({ error: "Wrong or missing password." });
+    }
+    if (headerOk && !cookieOk) {
+        res.setHeader('Set-Cookie', `push_auth=${cookieValue}; Path=/api; Max-Age=31536000; HttpOnly; Secure; SameSite=Strict`);
+    }
 
     const token = process.env.GITHUB_TOKEN;
     if (!token) {
         return res.status(500).json({ error: "GitHub is not configured: GITHUB_TOKEN is missing." });
     }
 
-    // NEW FEATURE: Intercept request to list user repositories automatically
+    // List the user's repositories (paginated, up to 300) for the dropdown
+    // and the multi-select delete screen.
     if (req.method === 'GET' && req.query.fetchRepos === 'true') {
         try {
-            // Fetch list sorted by most recently updated projects
-            const repoListRes = await fetch('https://api.github.com/user/repos?sort=updated&per_page=50', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!repoListRes.ok) return res.status(repoListRes.status).json({ error: "Could not pull repository directories." });
-
-            const data = await repoListRes.json();
-            // Filter out just the clean name info data needed for dropdown rendering
-            const cleanRepos = data.map(r => ({ name: r.name, full_name: r.full_name }));
+            const all = [];
+            for (let page = 1; page <= 3; page++) {
+                const repoListRes = await fetch(`https://api.github.com/user/repos?sort=updated&per_page=100&page=${page}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!repoListRes.ok) return res.status(repoListRes.status).json({ error: "Could not pull repository directories." });
+                const data = await repoListRes.json();
+                all.push(...data);
+                if (data.length < 100) break;
+            }
+            const cleanRepos = all.map(r => ({
+                name: r.name,
+                full_name: r.full_name,
+                private: !!r.private,
+                // only repos where the token has admin rights can be deleted
+                can_delete: !!(r.permissions && r.permissions.admin)
+            }));
             return res.status(200).json(cleanRepos);
         } catch (err) {
             return res.status(500).json({ error: err.message });
@@ -509,14 +543,19 @@ export default async function handler(req, res) {
 
     const { repo, path, content, sha, deleteRepo, deleteFile, deleteFolder, deletePaths, deleteAll, branch: branchOverride, message: customMessage } = req.method === 'GET' ? req.query : req.body;
 
-    // NEW: Delete an entire repository
+    // Delete an entire repository (called once per repo by the multi-select UI)
     if (req.method === 'DELETE' && deleteRepo) {
         try {
             const response = await fetch(`https://api.github.com/repos/${deleteRepo}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if (!response.ok) return res.status(response.status).json({ error: "Could not delete repository." });
+            if (!response.ok) {
+                let msg = "Could not delete repository.";
+                if (response.status === 403) msg = "GitHub refused: the token needs the delete_repo scope (classic) or Administration: write (fine-grained), and admin rights on this repo.";
+                else if (response.status === 404) msg = "Repo not found, or the token cannot see it.";
+                return res.status(response.status).json({ error: msg });
+            }
             return res.status(200).json({ success: true });
         } catch (err) {
             return res.status(500).json({ error: err.message });
